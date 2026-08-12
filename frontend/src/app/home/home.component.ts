@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, NgZone } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -57,9 +57,10 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
   private focusInterval: any;
 
   constructor(
-    private router: Router, 
-    private backgroundAnimationService: BackgroundAnimationService, 
-    private notificationService: SlackNotificationService
+    private router: Router,
+    private backgroundAnimationService: BackgroundAnimationService,
+    private notificationService: SlackNotificationService,
+    private ngZone: NgZone
   ) {
     this.terminalService = new TerminalService();
     this.fullLastLoginTime = new Date().toLocaleString();
@@ -216,11 +217,14 @@ export class HomeComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.focusInterval) {
       clearInterval(this.focusInterval);
     }
-    
-    // Focus every second
-    this.focusInterval = setInterval(() => {
-      this.focusTerminalInput();
-    }, 1000);
+
+    // Focus every second. Runs outside the Angular zone so each tick doesn't
+    // trigger app-wide change detection — focusing the input touches no bindings.
+    this.ngZone.runOutsideAngular(() => {
+      this.focusInterval = setInterval(() => {
+        this.focusTerminalInput();
+      }, 1000);
+    });
   }
 
   stopFocusInterval(): void {

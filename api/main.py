@@ -2,7 +2,6 @@ import asyncio
 import json
 import logging
 import os
-import queue
 from contextlib import asynccontextmanager
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -391,29 +390,28 @@ async def terminal_websocket(websocket: WebSocket, session_token: str):
         await websocket.close(code=4001)
         return
     
-    # Use a thread-safe queue since PTY output comes from a background thread
-    output_queue: queue.Queue[str] = queue.Queue()
-    
+    # PTY output arrives from a background thread; hand it to the event loop
+    # via call_soon_threadsafe so the sender task can await instead of polling
+    loop = asyncio.get_running_loop()
+    output_queue: asyncio.Queue[str] = asyncio.Queue()
+
     def on_pty_output(data: str):
         """Callback when PTY produces output (called from background thread)."""
-        output_queue.put(data)
-    
+        try:
+            loop.call_soon_threadsafe(output_queue.put_nowait, data)
+        except RuntimeError:
+            # Event loop already closed (connection torn down)
+            pass
+
     # Set up the output callback
     session_manager.set_output_callback(session_token, on_pty_output)
-    
+
     async def send_output():
         """Task to send PTY output to WebSocket."""
         try:
             while True:
-                # Poll the thread-safe queue
-                try:
-                    # Use a small timeout to allow checking for cancellation
-                    data = await asyncio.get_event_loop().run_in_executor(
-                        None, lambda: output_queue.get(timeout=0.1)
-                    )
-                    await websocket.send_json({"type": "output", "data": data})
-                except queue.Empty:
-                    continue
+                data = await output_queue.get()
+                await websocket.send_json({"type": "output", "data": data})
         except asyncio.CancelledError:
             pass
         except Exception as e:

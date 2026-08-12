@@ -75,6 +75,9 @@ export class Terminal {
     // Callback
     onTypingStart: (() => void) | null = null
 
+    // Redraw only when content changes (xterm render, logo load, connection status)
+    private dirty = true
+
     // Cleanup
     private unsubscribeOutput: (() => void) | null = null
     private keydownHandler: ((e: KeyboardEvent) => void) | null = null
@@ -161,8 +164,8 @@ export class Terminal {
         // Load logo
         this.logo = new Image()
         this.logo.src = '/logo.svg'
-        this.logo.onload = () => this.draw()
-        this.logo.onerror = () => this.draw()
+        this.logo.onload = () => { this.dirty = true }
+        this.logo.onerror = () => { this.dirty = true }
 
         // Setup input handling
         this.setupInput()
@@ -170,15 +173,14 @@ export class Terminal {
         
         // Trigger draw whenever xterm renders
         this.xterm.onRender(() => {
-            this.draw()
-            this.texture.needsUpdate = true
+            this.dirty = true
         })
         
         // Initial content
         this.xterm.write('Welcome to my terminal. You have full access.\r\n\r\n')
         
         // Initial draw after a small delay
-        setTimeout(() => this.draw(), 150)
+        setTimeout(() => { this.dirty = true }, 150)
     }
 
     private outputBuffer = ''
@@ -258,7 +260,7 @@ export class Terminal {
 
     setFocused(focused: boolean): void {
         this.isFocused = focused
-        
+
         // Initialize terminal session when focused for the first time
         if (focused && !terminalSession.isConnected()) {
             terminalSession.initSession().then(success => {
@@ -269,6 +271,8 @@ export class Terminal {
                         terminalSession.resize(dims.rows, dims.cols)
                     }
                 }
+                // Connection status indicator in the header changed
+                this.dirty = true
             })
         }
 
@@ -285,6 +289,11 @@ export class Terminal {
     }
 
     update(): void {
+        // When not focused, only redraw when content changed (xterm render, logo
+        // load, connection status). While focused, redraw every frame so the
+        // blinking cursor stays live regardless of xterm's render events.
+        if (!this.dirty && !this.isFocused) return
+        this.dirty = false
         this.draw()
         if (this.texture) {
             this.texture.needsUpdate = true

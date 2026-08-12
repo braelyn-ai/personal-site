@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -13,6 +13,8 @@ export class CountdownTimerComponent implements OnInit, OnDestroy {
   timeRemaining = 120; // 2 minutes in seconds
   displayTime = '02:00';
   private intervalId: any;
+
+  constructor(private ngZone: NgZone, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     // Component initialization
@@ -31,14 +33,20 @@ export class CountdownTimerComponent implements OnInit, OnDestroy {
     this.timeRemaining = 120; // Reset to 2 minutes
     this.updateDisplayTime();
 
-    this.intervalId = setInterval(() => {
-      this.timeRemaining--;
-      this.updateDisplayTime();
+    // Tick outside the Angular zone so each second doesn't run app-wide change
+    // detection; only this component's view is refreshed explicitly.
+    this.ngZone.runOutsideAngular(() => {
+      this.intervalId = setInterval(() => {
+        this.timeRemaining--;
+        this.updateDisplayTime();
 
-      if (this.timeRemaining <= 0) {
-        this.stopCountdown();
-      }
-    }, 1000);
+        if (this.timeRemaining <= 0) {
+          this.stopCountdown();
+        }
+
+        this.cdr.detectChanges();
+      }, 1000);
+    });
   }
 
   stopCountdown(): void {
