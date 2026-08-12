@@ -6,6 +6,7 @@ import type { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js
 import { assetUrl } from './utils/assetUrl'
 import { trackEvent } from './utils/trackEvent'
 import { markFound } from './easterEggs'
+import { ensureBackroomsLoaded } from './objects/Backrooms'
 
 // Helper to detect mobile devices
 function isMobileDevice(): boolean {
@@ -528,9 +529,13 @@ export function setupInteractions(
                     state.isFocusingOnNotepad = false
                     terminal.setFocused(false)
                     trackEvent({ eventType: 'emergency_button_focus' })
+                    // Kick off lazy load of backrooms assets while user stares at the button
+                    ensureBackroomsLoaded()
                 } else if (!state.isEmergencyStopped) {
                     trackEvent({ eventType: 'emergency_button_activate' })
                     markFound('backrooms')
+                    // Ensure backrooms is loaded (no-op if already fetched during focus)
+                    ensureBackroomsLoaded()
                     // Sequence: Turn off rave lights -> Pause -> Zoom out -> Pause -> Turn off all lights
                     state.isEmergencyStopped = true
                     
@@ -572,8 +577,9 @@ export function setupInteractions(
                                 light.visible = false
                             })
 
-                            // 4. After 3s of darkness, swap environment
+                            // 4. After 3s of darkness, swap environment (await backrooms load in case slow network)
                             setTimeout(() => {
+                                ensureBackroomsLoaded().then(() => {
                                 // Remove Garage Assets
                                 state.floorPivots.forEach(p => p.visible = false)
                                 state.barrierPivots.forEach(p => p.visible = false)
@@ -622,7 +628,7 @@ export function setupInteractions(
                                 // Switch notepad and terminal to demonic backrooms mode
                                 notepad.setBackroomsMode(true)
                                 terminal.setBackroomsMode(true)
-
+                                })
                             }, 3000)
                         }, 1000)
                     }, 1000)
