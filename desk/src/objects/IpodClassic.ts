@@ -173,28 +173,35 @@ function redrawScreen(state: IpodScreenState): void {
 }
 
 // Update function to be called from animation loop
+// Scrolling text redraws are throttled to 20fps; offsets derive from absolute
+// time so the scroll speed is unaffected
+let lastScreenRedrawTime = 0
+const SCREEN_REDRAW_INTERVAL = 1 / 20
+
 export function updateIpodScreen(time: number): void {
     if (!screenState) return
-    
+
+    // Only redraw when text is scrolling, at most 20 times per second
+    if (!screenState.trackNeedsScroll && !screenState.artistNeedsScroll) return
+    if (time - lastScreenRedrawTime < SCREEN_REDRAW_INTERVAL) return
+    lastScreenRedrawTime = time
+
     const scrollSpeed = 40 // pixels per second
     const gap = 60
-    
+
     // Update track scroll
     if (screenState.trackNeedsScroll) {
         const totalWidth = screenState.trackWidth + gap
         screenState.trackScrollOffset = (time * scrollSpeed) % totalWidth
     }
-    
+
     // Update artist scroll
     if (screenState.artistNeedsScroll) {
         const totalWidth = screenState.artistWidth + gap
         screenState.artistScrollOffset = (time * scrollSpeed) % totalWidth
     }
-    
-    // Redraw if any scrolling is happening
-    if (screenState.trackNeedsScroll || screenState.artistNeedsScroll) {
-        redrawScreen(screenState)
-    }
+
+    redrawScreen(screenState)
 }
 
 export function loadIpodClassic(loader: GLTFLoader, scene: THREE.Scene, state: AppState): Promise<void> {

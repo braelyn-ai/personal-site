@@ -5,6 +5,11 @@ export class Oscilloscope {
     ctx: CanvasRenderingContext2D
     texture: THREE.CanvasTexture
     time: number
+    // Redraws are throttled to 30fps; phase advances by wall-clock time so the
+    // wave moves at the same speed as before (0.05 per frame at 60fps = 3.0/s)
+    private lastDrawTime = 0
+    private static readonly PHASE_SPEED = 3.0
+    private static readonly MIN_FRAME_MS = 1000 / 30
 
     constructor(width = 512, height = 512) {
         this.canvas = document.createElement('canvas')
@@ -23,9 +28,15 @@ export class Oscilloscope {
     }
 
     update(): void {
-        this.time += 0.05
+        const now = performance.now()
+        const elapsed = now - this.lastDrawTime
+        if (elapsed < Oscilloscope.MIN_FRAME_MS) return
+
+        // Cap the phase step so a long pause (e.g. backgrounded tab) doesn't jump
+        this.time += Math.min(elapsed / 1000, 0.1) * Oscilloscope.PHASE_SPEED
+        this.lastDrawTime = now
         this.draw()
-        
+
         if (this.texture) {
             this.texture.needsUpdate = true
         }
