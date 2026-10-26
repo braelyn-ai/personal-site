@@ -87,8 +87,12 @@ loader.setDRACOLoader(dracoLoader)
 
 // Initialize meshopt decoder and then load assets
 const meshoptDecoder = MeshoptDecoder()
-meshoptDecoder.ready.then(() => {
-    loader.setMeshoptDecoder(meshoptDecoder)
+// If the decoder can't start (e.g. WebAssembly blocked), still load the scene;
+// only meshopt-compressed models will fail instead of the whole page staying black
+meshoptDecoder.ready.then(
+    () => loader.setMeshoptDecoder(meshoptDecoder),
+    (err: unknown) => console.warn('Meshopt decoder unavailable:', err)
+).then(() => {
     prepareBackroomsLoader(loader, scene, state)
 
     // Load door and walls first, then load everything else
