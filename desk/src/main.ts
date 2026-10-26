@@ -26,12 +26,10 @@ import { setupLights } from './setup/lights'
 import { setupInteractions } from './interaction'
 import { setupInputListeners } from './input'
 import { createDeathOverlay } from './utils/deathScreen'
+import { isMobileDevice, setupMobile } from './mobile'
 
-// Helper to detect mobile devices
-function isMobileDevice(): boolean {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-        (window.innerWidth <= 768 && 'ontouchstart' in window)
-}
+const IS_MOBILE = isMobileDevice()
+setupMobile()
 
 // --- CONSTANTS ---
 const DEFAULT_POS = new THREE.Vector3(1, 4, 8)
@@ -49,9 +47,12 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 camera.position.copy(INTRO_POS)
 camera.lookAt(INTRO_TARGET)
 
-const renderer = new THREE.WebGLRenderer({ antialias: true })
+// Antialiasing is wasted under the pixelation pass on phones, so skip it there
+const renderer = new THREE.WebGLRenderer({ antialias: !IS_MOBILE, powerPreference: 'high-performance' })
+renderer.setPixelRatio(1)
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.shadowMap.enabled = true
+if (IS_MOBILE) renderer.shadowMap.type = THREE.BasicShadowMap
 renderer.toneMapping = THREE.ReinhardToneMapping
 renderer.domElement.style.position = 'absolute'
 renderer.domElement.style.top = '0'
@@ -80,7 +81,8 @@ const loader = new GLTFLoader()
 
 // Setup Draco decoder for compressed models
 const dracoLoader = new DRACOLoader()
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/')
+// Decoder is bundled in public/draco (copied from three/examples/jsm/libs/draco/gltf)
+dracoLoader.setDecoderPath(`${import.meta.env.BASE_URL}draco/`)
 loader.setDRACOLoader(dracoLoader)
 
 // Initialize meshopt decoder and then load assets
@@ -91,22 +93,17 @@ meshoptDecoder.ready.then(() => {
 
     // Load door and walls first, then load everything else
     loadDoor(loader, scene, state).then(() => {
-        // Skip loading scene objects on mobile for performance
-        if (!isMobileDevice()) {
-            // Load all objects in parallel, then pre-compile shaders
-            Promise.all([
-                loadSimpleObjects(loader, scene, state),
-                loadComputer(loader, scene, terminal, state),
-                loadOscilloscope(loader, scene, oscilloscope),
-                loadNotepad(loader, scene, state, notepad),
-            ]).then(() => {
-                // Pre-compile all shaders to avoid jank when door opens
-                renderer.compile(scene, camera)
-                state.introSceneReady = true
-            })
-        } else {
+        // Load all objects in parallel, then pre-compile shaders
+        Promise.all([
+            loadSimpleObjects(loader, scene, state),
+            loadComputer(loader, scene, terminal, state),
+            loadOscilloscope(loader, scene, oscilloscope),
+            loadNotepad(loader, scene, state, notepad),
+        ]).then(() => {
+            // Pre-compile all shaders to avoid jank when door opens
+            renderer.compile(scene, camera)
             state.introSceneReady = true
-        }
+        })
     })
 })
 
@@ -116,18 +113,11 @@ const composer = new EffectComposer(renderer)
 const renderPass = new RenderPass(scene, camera)
 const renderPixelatedPass = new RenderPixelatedPass(1.5, scene, camera)
 
-// On mobile, use regular render pass instead of pixelated pass for better performance
-if (isMobileDevice()) {
-    renderPass.enabled = true
-    composer.addPass(renderPass)
-    // Still add pixelated pass but disabled (needed for animate loop compatibility)
-    renderPixelatedPass.enabled = false
-    composer.addPass(renderPixelatedPass)
-} else {
-    renderPass.enabled = false
-    composer.addPass(renderPass)
-    composer.addPass(renderPixelatedPass)
-}
+// The pixelated pass renders the scene at reduced resolution, so it is
+// also the cheaper option on phones
+renderPass.enabled = false
+composer.addPass(renderPass)
+composer.addPass(renderPixelatedPass)
 
 const whiteOutPass = new ShaderPass(WhiteOutShader)
 whiteOutPass.uniforms['resolution'].value = new THREE.Vector2(window.innerWidth, window.innerHeight)
@@ -188,13 +178,16 @@ const animate = createAnimationLoop({
 })
 
 // --- RESIZE ---
-window.addEventListener('resize', () => {
+function handleResize() {
     camera.aspect = window.innerWidth / window.innerHeight
     camera.updateProjectionMatrix()
     renderer.setSize(window.innerWidth, window.innerHeight)
     composer.setSize(window.innerWidth, window.innerHeight)
     crtPass.uniforms['resolution'].value.set(window.innerWidth, window.innerHeight)
     whiteOutPass.uniforms['resolution'].value.set(window.innerWidth, window.innerHeight)
-})
+}
+window.addEventListener('resize', handleResize)
+// iOS sometimes reports stale sizes right after rotating, so check again shortly after
+window.addEventListener('orientationchange', () => setTimeout(handleResize, 300))
 
 animate()

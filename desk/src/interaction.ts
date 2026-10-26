@@ -7,34 +7,7 @@ import { assetUrl } from './utils/assetUrl'
 import { trackEvent } from './utils/trackEvent'
 import { markFound } from './easterEggs'
 import { ensureBackroomsLoaded } from './objects/Backrooms'
-
-// Helper to detect mobile devices
-function isMobileDevice(): boolean {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-        (window.innerWidth <= 768 && 'ontouchstart' in window)
-}
-
-// Helper to create text texture (for updating enter button)
-function createTextTexture(text: string, fontSize: number = 64, color: string = '#ffffff'): THREE.CanvasTexture {
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')!
-    
-    canvas.width = 512
-    canvas.height = 128
-    
-    ctx.fillStyle = 'transparent'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-    
-    ctx.font = `bold ${fontSize}px Arial, sans-serif`
-    ctx.fillStyle = color
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2)
-    
-    const texture = new THREE.CanvasTexture(canvas)
-    texture.needsUpdate = true
-    return texture
-}
+import { enterImmersiveMode } from './mobile'
 
 export function setupInteractions(
     camera: THREE.PerspectiveCamera,
@@ -269,6 +242,37 @@ export function setupInteractions(
         }
     })
 
+    const TAP_RADIUS_PX = 36
+    function findNearestDoorLink(clientX: number, clientY: number): THREE.Object3D | null {
+        if (!state.doorUI) return null
+        let best: THREE.Object3D | null = null
+        let bestDist = TAP_RADIUS_PX
+        const box = new THREE.Box3()
+        const corner = new THREE.Vector3()
+        state.doorUI.children.forEach(child => {
+            if (!child.name.startsWith('social_') && child.name !== 'door_enter') return
+            // Distance from the tap to the link's on-screen bounding rectangle
+            box.setFromObject(child)
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+            for (let i = 0; i < 8; i++) {
+                corner.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z)
+                corner.project(camera)
+                const sx = (corner.x + 1) / 2 * window.innerWidth
+                const sy = (1 - corner.y) / 2 * window.innerHeight
+                minX = Math.min(minX, sx); maxX = Math.max(maxX, sx)
+                minY = Math.min(minY, sy); maxY = Math.max(maxY, sy)
+            }
+            const dx = Math.max(minX - clientX, 0, clientX - maxX)
+            const dy = Math.max(minY - clientY, 0, clientY - maxY)
+            const dist = Math.hypot(dx, dy)
+            if (dist < bestDist) {
+                bestDist = dist
+                best = child
+            }
+        })
+        return best
+    }
+
     // Helper function to handle click/tap interactions
     function handleClickInteraction(clientX: number, clientY: number) {
         pointer.x = (clientX / window.innerWidth) * 2 - 1
@@ -280,6 +284,12 @@ export function setupInteractions(
             
             if (state.doorUI) {
                 const intersects = raycaster.intersectObjects(state.doorUI.children, true)
+                // Fingers are imprecise: if the tap missed every link, use the
+                // closest one within a small radius
+                if (!intersects.some(hit => hit.object.name.startsWith('social_') || hit.object.name === 'door_enter')) {
+                    const nearest = findNearestDoorLink(clientX, clientY)
+                    if (nearest) intersects.unshift({ object: nearest } as THREE.Intersection)
+                }
                 
                 // Loop through all intersects to find a clickable object
                 // (title mesh or other unnamed objects might be hit first)
@@ -320,29 +330,9 @@ export function setupInteractions(
                             }
                         }
                         
-                        if (isMobileDevice()) {
-                            const enterMesh = hitObject as THREE.Mesh
-                            const material = enterMesh.material as THREE.MeshBasicMaterial
-                            
-                            // Update texture to show mobile message
-                            const newTexture = createTextTexture('view on desktop only', 32)
-                            material.map = newTexture
-                            material.needsUpdate = true
-                            
-                            // Update geometry to be wider for the longer text
-                            enterMesh.geometry.dispose()
-                            enterMesh.geometry = new THREE.PlaneGeometry(5, 1)
-                            
-                            // After a delay, show the second line
-                            setTimeout(() => {
-                                const secondTexture = createTextTexture("(it's worth it i promise)", 28)
-                                material.map = secondTexture
-                                material.needsUpdate = true
-                            }, 2000)
-                            
-                            return
-                        }
-                        
+                        // On phones, go fullscreen and lock to landscape where supported
+                        enterImmersiveMode()
+
                         // Start glitch effect (camera movement happens after glitch + scene ready)
                         state.introGlitchStartTime = Date.now()
                         trackEvent({ eventType: 'door_enter' })
@@ -371,8 +361,8 @@ export function setupInteractions(
         if (state.powerPilePivot) {
             const intersects = raycaster.intersectObjects(state.powerPilePivot.children, true)
             if (intersects.length > 0) {
-                if (state.isCameraLocked && !state.pixelationAnimationStartTime && !isMobileDevice()) {
-                    // Start pixelation animation (skip on mobile for performance)
+                if (state.isCameraLocked && !state.pixelationAnimationStartTime) {
+                    // Start pixelation animation
                     state.pixelationAnimationStartTime = Date.now()
                     // Play sniff sound
                     if (state.sniffSound && !state.sniffSound.isPlaying) {

@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { AppState } from '../types'
 import { assetUrl } from '../utils/assetUrl'
+import { isMobileDevice } from '../mobile'
 
 // Helper to create text texture
 function createTextTexture(text: string, fontSize: number = 64, color: string = '#ffffff'): THREE.CanvasTexture {
@@ -182,6 +183,8 @@ export function loadDoor(loader: GLTFLoader, scene: THREE.Scene, state: AppState
         // Create door UI group (positioned in front of door, facing camera)
         const doorUI = new THREE.Group()
         doorUI.position.set(0, 2.5, 13) // In front of door
+        // Bigger text and tap targets on phones
+        if (isMobileDevice()) doorUI.scale.setScalar(1.25)
         scene.add(doorUI)
 
         // "braelyn.ai" title
