@@ -33,12 +33,15 @@ export interface AppState {
     isFocusingOnCar: boolean
     isEmergencyStopped: boolean
     isBlackout: boolean
+    renderPaused: boolean
     isAudioPlaying: boolean
     isIntro: boolean
     introAnimationProgress: number
     introGlitchStartTime: number | null
     introSceneReady: boolean
+    introMusicReady: boolean
     introDoorOpenStartTime: number | null
+    introAwaitingLandscape: boolean
     doorOpenSound: THREE.Audio | null
     doorKnockSound: THREE.Audio | null
     sniffSound: THREE.Audio | null
@@ -52,6 +55,7 @@ export interface AppState {
     doorWalls: THREE.Group[]
     doorUI: THREE.Group | null
     doorEnterMesh: THREE.Mesh | null
+    doorRotatePrompt: THREE.Group | null
     computerPivot: THREE.Group | null
     notepadPivot: THREE.Group | null
     powerPilePivot: THREE.Group | null

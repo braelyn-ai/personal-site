@@ -1,6 +1,8 @@
 import type { AppState } from '../types'
 import { updateIpodScreen } from '../objects/IpodClassic'
 
+const BOUNCING_LIGHT_INTENSITY = 50
+
 export function updateScene(state: AppState, time: number): void {
     // Update iPod screen scrolling text
     updateIpodScreen(time)
@@ -16,11 +18,17 @@ export function updateScene(state: AppState, time: number): void {
 
     // Show/hide lights based on active show
     const showRaveLights = state.currentLightShow !== 'lightShow3' && !state.isEmergencyStopped
+    // Lights are switched off by intensity, never visibility: changing which lights are
+    // visible changes the light count compiled into every shader and freezes the page.
+    // updateRaveLights() sets the real intensities afterwards while the show is running.
     state.raveLights.forEach(item => {
-        item.light.visible = showRaveLights
+        if (!showRaveLights) item.light.intensity = 0
+        // Skip shadow-map renders for spotlights that are switched off
+        if (item.light.castShadow && item.light.shadow) item.light.shadow.autoUpdate = showRaveLights
     })
     if (state.bouncingLight) {
-        state.bouncingLight.visible = state.currentLightShow === 'lightShow3' && !state.isEmergencyStopped
+        const showBouncing = state.currentLightShow === 'lightShow3' && !state.isEmergencyStopped
+        state.bouncingLight.intensity = showBouncing ? BOUNCING_LIGHT_INTENSITY : 0
     }
 
     // Emergency Text Flashing

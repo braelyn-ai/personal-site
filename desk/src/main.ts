@@ -26,6 +26,7 @@ import { setupLights } from './setup/lights'
 import { setupInteractions } from './interaction'
 import { setupInputListeners } from './input'
 import { createDeathOverlay } from './utils/deathScreen'
+import { prewarm } from './utils/prewarm'
 import { isMobileDevice, setupMobile } from './mobile'
 
 const IS_MOBILE = isMobileDevice()
@@ -97,15 +98,24 @@ meshoptDecoder.ready.then(
 
     // Load door and walls first, then load everything else
     loadDoor(loader, scene, state).then(() => {
-        // Load all objects in parallel, then pre-compile shaders
-        Promise.all([
-            loadSimpleObjects(loader, scene, state),
-            loadComputer(loader, scene, terminal, state),
-            loadOscilloscope(loader, scene, oscilloscope),
-            loadNotepad(loader, scene, state, notepad),
-        ]).then(() => {
-            // Pre-compile all shaders to avoid jank when door opens
-            renderer.compile(scene, camera)
+        // Load into an offscreen staging scene so the render loop never compiles
+        // shaders or uploads textures synchronously while models stream in.
+        // allSettled: one broken model shouldn't keep the door shut forever.
+        const staging = new THREE.Scene()
+        Promise.allSettled([
+            loadSimpleObjects(loader, staging, state),
+            loadComputer(loader, staging, terminal, state),
+            loadOscilloscope(loader, staging, oscilloscope),
+            loadNotepad(loader, staging, state, notepad),
+        ]).then(async () => {
+            try {
+                await prewarm(renderer, staging, camera, scene)
+            } catch (err) {
+                console.warn('Scene warm-up failed, continuing without it:', err)
+            }
+            // Move everything into the real scene in one go. World transforms are
+            // unchanged because the staging scene sits at the origin.
+            if (staging.children.length > 0) scene.add(...staging.children)
             state.introSceneReady = true
         })
     })
@@ -154,7 +164,7 @@ const outputPass = new OutputPass()
 composer.addPass(outputPass)
 
 // --- INTERACTION ---
-setupInteractions(camera, scene, state, notepad, terminal, crtPass)
+setupInteractions(camera, scene, state, notepad, terminal, crtPass, () => prewarm(renderer, scene, camera))
 setupInputListeners(
     state,
     terminal,
@@ -184,6 +194,10 @@ const animate = createAnimationLoop({
 // --- RESIZE ---
 function handleResize() {
     camera.aspect = window.innerWidth / window.innerHeight
+    // In portrait (phones, before entering), widen the view so the door links fit across
+    camera.fov = camera.aspect < 1
+        ? Math.max(75, THREE.MathUtils.radToDeg(2 * Math.atan(0.5 / camera.aspect)))
+        : 75
     camera.updateProjectionMatrix()
     renderer.setSize(window.innerWidth, window.innerHeight)
     composer.setSize(window.innerWidth, window.innerHeight)
@@ -194,4 +208,5 @@ window.addEventListener('resize', handleResize)
 // iOS sometimes reports stale sizes right after rotating, so check again shortly after
 window.addEventListener('orientationchange', () => setTimeout(handleResize, 300))
 
+handleResize()
 animate()

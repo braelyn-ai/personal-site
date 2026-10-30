@@ -125,7 +125,7 @@ export function setupLights(scene: THREE.Scene, state: AppState): void {
     // Room perimeter: back wall at z=-30, left wall at x=-50, front at z=20, right at x=50
     const bouncingLight = new THREE.PointLight(0xff0000, 50, 30)
     bouncingLight.position.set(-50, 0, -30) // Start at back-left corner
-    bouncingLight.visible = false // Hidden by default
+    bouncingLight.intensity = 0 // Off by default (dimmed, not hidden, to avoid shader recompiles)
     scene.add(bouncingLight)
     state.bouncingLight = bouncingLight
     state.lightShows.lightShow3 = { light: bouncingLight }

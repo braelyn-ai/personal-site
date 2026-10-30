@@ -7,7 +7,8 @@ import { assetUrl } from './utils/assetUrl'
 import { trackEvent } from './utils/trackEvent'
 import { markFound } from './easterEggs'
 import { ensureBackroomsLoaded } from './objects/Backrooms'
-import { enterImmersiveMode } from './mobile'
+import { enterImmersiveMode, requireLandscape, isMobileDevice, MOBILE_DESK_ENABLED } from './mobile'
+import { createTextTexture } from './objects/Door'
 
 export function setupInteractions(
     camera: THREE.PerspectiveCamera,
@@ -15,7 +16,8 @@ export function setupInteractions(
     state: AppState,
     notepad: Notepad,
     terminal: Terminal,
-    crtPass: ShaderPass
+    crtPass: ShaderPass,
+    prewarmScene: () => Promise<void>
 ): void {
     const raycaster = new THREE.Raycaster()
     const pointer = new THREE.Vector2()
@@ -68,13 +70,93 @@ export function setupInteractions(
     reverbGain.connect(sound.gain)
 
     const audioLoader = new THREE.AudioLoader()
-    audioLoader.load(assetUrl('berghain.mp3'), function (buffer) {
-        sound.setBuffer(buffer)
-        sound.setLoop(true)
-        sound.setVolume(0.5)
-        sound.offset = 120 // Start at 2 minutes
-    }, undefined, function (error) {
-        console.warn('Failed to load berghain.mp3:', error)
+
+    // --- MUSIC ---
+    // The door only opens once the music is confirmed playing (see animate.ts).
+    let musicWanted = false
+    let musicStartedAt = 0
+    let musicStart: Promise<void> | null = null
+
+    function loadMusic(attempt = 1): Promise<AudioBuffer | null> {
+        return audioLoader.loadAsync(assetUrl('berghain.mp3')).catch((error: unknown) => {
+            console.warn(`Failed to load berghain.mp3 (attempt ${attempt}):`, error)
+            if (attempt >= 3) return null
+            return new Promise(r => setTimeout(r, 1000 * attempt)).then(() => loadMusic(attempt + 1))
+        })
+    }
+    const musicBuffer = loadMusic().then(buffer => {
+        if (buffer) {
+            sound.setBuffer(buffer)
+            sound.setLoop(true)
+            sound.setVolume(0.5)
+            sound.offset = 120 // Start at 2 minutes
+        }
+        return buffer
+    })
+
+    // Must run synchronously inside a user gesture for browsers to allow it
+    function resumeAudio(): void {
+        if (listener.context.state !== 'running') {
+            listener.context.resume().catch(() => { /* retried on the next gesture */ })
+        }
+    }
+
+    // Shown only if the browser keeps audio blocked after the enter click
+    const audioHint = document.createElement('div')
+    audioHint.textContent = 'click anywhere to turn the music on'
+    Object.assign(audioHint.style, {
+        position: 'fixed', left: '50%', bottom: '10%', transform: 'translateX(-50%)',
+        zIndex: '10', color: '#fff', font: '16px monospace', opacity: '0.8',
+        pointerEvents: 'none', display: 'none',
+    })
+    document.body.appendChild(audioHint)
+
+    // Resolves once the music is actually audible: context running and its clock advancing
+    function waitUntilAudible(): Promise<void> {
+        const waitStart = performance.now()
+        return new Promise(resolve => {
+            const check = () => {
+                const ctx = listener.context
+                if (ctx.state === 'running' && sound.isPlaying && ctx.currentTime > musicStartedAt + 0.05) {
+                    audioHint.style.display = 'none'
+                    resolve()
+                    return
+                }
+                if (ctx.state !== 'running' && performance.now() - waitStart > 1500) {
+                    audioHint.style.display = 'block'
+                }
+                setTimeout(check, 50)
+            }
+            check()
+        })
+    }
+
+    // Call from a user gesture. Safe to call repeatedly.
+    function startMusic(): Promise<void> {
+        musicWanted = true
+        resumeAudio()
+        if (!musicStart) {
+            musicStart = musicBuffer.then(buffer => {
+                if (!buffer) {
+                    // Gave up after retries: let the visitor in rather than lock the door forever
+                    console.warn('Music unavailable, opening the door without it')
+                    return
+                }
+                if (!musicWanted) return
+                if (!sound.isPlaying) sound.play()
+                musicStartedAt = listener.context.currentTime
+                return waitUntilAudible().then(() => { state.isAudioPlaying = true })
+            }).then(() => { state.introMusicReady = true })
+        }
+        return musicStart
+    }
+
+    // Any later gesture retries a blocked or interrupted context (e.g. iOS after a call)
+    for (const type of ['click', 'touchend', 'keydown']) {
+        window.addEventListener(type, () => { if (musicWanted) resumeAudio() }, { capture: true })
+    }
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && musicWanted) resumeAudio()
     })
 
     // Emergency switch sound
@@ -128,8 +210,6 @@ export function setupInteractions(
         console.warn('Failed to load lamp-buzz.mp3:', error)
     })
     state.lampBuzzSound = lampBuzzSound
-
-    let audioStarted = false
 
     // Helper function to update pointer and handle hover effects
     function updatePointerAndHover(clientX: number, clientY: number) {
@@ -280,6 +360,8 @@ export function setupInteractions(
 
         // Handle intro click - check for door UI interactions
         if (state.isIntro && state.introAnimationProgress === 0) {
+            // Already entered: the door UI is hidden (raycasts still hit hidden meshes)
+            if (state.introGlitchStartTime) return
             raycaster.setFromCamera(pointer, camera)
             
             if (state.doorUI) {
@@ -313,29 +395,32 @@ export function setupInteractions(
                     
                     // Handle enter button click
                     if (hitName === 'door_enter') {
+                        // Start music first: this resumes the audio context inside the gesture
+                        startMusic()
+
                         // Play knock sound
                         if (state.doorKnockSound && !state.doorKnockSound.isPlaying) {
                             state.doorKnockSound.play()
                         }
-                        
-                        // Play audio on enter
-                        if (!audioStarted) {
-                            if (sound.context.state === 'suspended') {
-                                sound.context.resume()
-                            }
-                            if (sound.buffer) {
-                                sound.play()
-                                audioStarted = true
-                                state.isAudioPlaying = true
-                            }
+
+                        // Mobile is switched off for now: show the old desktop-only message
+                        if (isMobileDevice() && !MOBILE_DESK_ENABLED) {
+                            trackEvent({ eventType: 'door_enter', eventData: 'mobile_blocked' })
+                            showDesktopOnlyMessage(hitObject as THREE.Mesh)
+                            return
                         }
-                        
+
                         // On phones, go fullscreen and lock to landscape where supported
                         enterImmersiveMode()
+                        trackEvent({ eventType: 'door_enter' })
 
                         // Start glitch effect (camera movement happens after glitch + scene ready)
                         state.introGlitchStartTime = Date.now()
-                        trackEvent({ eventType: 'door_enter' })
+
+                        // Phones in portrait see a rotate prompt on the door, which only
+                        // opens once they're sideways (the scene keeps loading meanwhile)
+                        state.introAwaitingLandscape = true
+                        requireLandscape(() => { state.introAwaitingLandscape = false })
                         return
                     }
                 }
@@ -343,16 +428,9 @@ export function setupInteractions(
             return // Don't process other clicks during intro
         }
 
-        // Play audio on first click (if not started during intro)
-        if (!audioStarted) {
-            if (sound.context.state === 'suspended') {
-                sound.context.resume()
-            }
-            if (sound.buffer) {
-                sound.play()
-                audioStarted = true
-                state.isAudioPlaying = true
-            }
+        // Play audio on first click (if not started during intro, e.g. dev mode)
+        if (!musicWanted && !state.isEmergencyStopped) {
+            startMusic()
         }
 
         raycaster.setFromCamera(pointer, camera)
@@ -542,6 +620,7 @@ export function setupInteractions(
                     if (state.technoMusic && state.technoMusic.isPlaying) {
                         state.technoMusic.stop()
                     }
+                    musicWanted = false
 
                     // Hide the warning text
                     if (state.emergencyText) state.emergencyText.visible = false
@@ -562,14 +641,21 @@ export function setupInteractions(
                                 state.emergencySwitchSound.play()
                             }
 
+                            // Dim instead of hiding: hiding lights changes the light count
+                            // baked into every shader and stalls on a full recompile
                             state.roomLights.forEach(light => {
-                                // @ts-ignore
-                                light.visible = false
+                                light.intensity = 0
+                                if (light.castShadow && light.shadow) light.shadow.autoUpdate = false
                             })
 
                             // 4. After 3s of darkness, swap environment (await backrooms load in case slow network)
                             setTimeout(() => {
                                 ensureBackroomsLoaded().then(() => {
+                                // This swap changes fog and the light setup, so every shader has
+                                // to recompile. The screen is dark, so hold the last frame and
+                                // compile in the background instead of stalling on the first draw.
+                                state.renderPaused = true
+
                                 // Remove Garage Assets
                                 state.floorPivots.forEach(p => p.visible = false)
                                 state.barrierPivots.forEach(p => p.visible = false)
@@ -618,6 +704,11 @@ export function setupInteractions(
                                 // Switch notepad and terminal to demonic backrooms mode
                                 notepad.setBackroomsMode(true)
                                 terminal.setBackroomsMode(true)
+
+                                // Resume after warm-up; the timeout guards against a stuck compile
+                                Promise.race([prewarmScene(), new Promise(r => setTimeout(r, 4000))])
+                                    .catch(err => console.warn('Backrooms warm-up failed:', err))
+                                    .finally(() => { state.renderPaused = false })
                                 })
                             }, 3000)
                         }, 1000)
@@ -654,4 +745,20 @@ export function setupInteractions(
             handleClickInteraction(touch.clientX, touch.clientY)
         }
     })
+}
+
+// Swap the door's "enter" button for the desktop-only message, then a second line
+function showDesktopOnlyMessage(enterMesh: THREE.Mesh): void {
+    const material = enterMesh.material as THREE.MeshBasicMaterial
+    material.map?.dispose()
+    material.map = createTextTexture('view on desktop only', 32)
+    material.needsUpdate = true
+    enterMesh.geometry.dispose()
+    enterMesh.geometry = new THREE.PlaneGeometry(5, 1)
+
+    setTimeout(() => {
+        material.map?.dispose()
+        material.map = createTextTexture("(it's worth it i promise)", 28)
+        material.needsUpdate = true
+    }, 2000)
 }

@@ -67,10 +67,19 @@ export function createAnimationLoop(deps: AnimationDependencies): () => void {
                 state.doorUI.visible = false
                 state.doorUI.position.x = 0
                 state.doorUI.position.y = 2.5
+
+                // Phone still in portrait: show the rotate sign on the door until it turns
+                if (state.doorRotatePrompt) {
+                    state.doorRotatePrompt.visible = state.introAwaitingLandscape
+                    if (state.introAwaitingLandscape) {
+                        const phone = state.doorRotatePrompt.getObjectByName('rotate_phone')
+                        if (phone) phone.rotation.z = rotateHintAngle(time)
+                    }
+                }
                 
                 // Wait additional delay after glitch, then start door opening if scene is ready
                 if (glitchElapsed >= glitchDuration + postGlitchDelay && 
-                    state.introSceneReady && !state.introDoorOpenStartTime) {
+                    state.introSceneReady && state.introMusicReady && !state.introAwaitingLandscape && !state.introDoorOpenStartTime) {
                     state.introDoorOpenStartTime = Date.now()
                     
                     // Play door open sound
@@ -296,7 +305,8 @@ export function createAnimationLoop(deps: AnimationDependencies): () => void {
             camera.position.z += shakeZ
         }
 
-        composer.render()
+        // Paused while shaders compile in the background (the canvas keeps its last frame)
+        if (!state.renderPaused) composer.render()
 
         // Restore camera position to prevent drift/fighting with controls
         if (state.isAudioPlaying && !state.isEmergencyStopped) {
@@ -307,4 +317,16 @@ export function createAnimationLoop(deps: AnimationDependencies): () => void {
     }
 
     return animate
+}
+
+// Phone icon tilt for the rotate prompt: hold upright, turn sideways, hold, turn back
+function rotateHintAngle(time: number): number {
+    const p = (time % 2.4) / 2.4
+    const ease = (t: number) => t * t * (3 - 2 * t)
+    let amount = 0
+    if (p < 0.2) amount = 0
+    else if (p < 0.5) amount = ease((p - 0.2) / 0.3)
+    else if (p < 0.8) amount = 1
+    else amount = 1 - ease((p - 0.8) / 0.2)
+    return amount * Math.PI / 2
 }

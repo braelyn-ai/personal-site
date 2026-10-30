@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { AppState } from '../types'
+import { maybeShowToolbarTip } from '../mobile'
 
 // Camera position constants
 const ZOOM_POS = new THREE.Vector3(-2.8, 2.8, 1.2)
@@ -54,7 +55,11 @@ export function updateCamera(camera: THREE.PerspectiveCamera, controls: OrbitCon
                 state.doorPivot.visible = false
             }
             if (state.doorLight) {
-                state.doorLight.visible = false
+                // Don't toggle visibility: removing a shadow-casting light changes the
+                // light count baked into every lit shader and forces a full recompile.
+                // Zero it out and stop re-rendering its shadow map instead.
+                state.doorLight.intensity = 0
+                state.doorLight.shadow.autoUpdate = false
             }
             if (state.doorUI) {
                 state.doorUI.visible = false
@@ -62,6 +67,8 @@ export function updateCamera(camera: THREE.PerspectiveCamera, controls: OrbitCon
             state.doorWalls.forEach(wall => {
                 wall.visible = false
             })
+            // Arrived at the desk: good moment to tell iPhone Safari users about fullscreen
+            maybeShowToolbarTip()
         }
         return
     }

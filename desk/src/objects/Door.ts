@@ -5,7 +5,7 @@ import { assetUrl } from '../utils/assetUrl'
 import { isMobileDevice } from '../mobile'
 
 // Helper to create text texture
-function createTextTexture(text: string, fontSize: number = 64, color: string = '#ffffff'): THREE.CanvasTexture {
+export function createTextTexture(text: string, fontSize: number = 64, color: string = '#ffffff'): THREE.CanvasTexture {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')!
     
@@ -267,6 +267,10 @@ export function loadDoor(loader: GLTFLoader, scene: THREE.Scene, state: AppState
         state.doorUI = doorUI
         state.doorEnterMesh = enterMesh
 
+        // Shown on the door after enter is tapped while a phone is still in portrait
+        state.doorRotatePrompt = createRotatePrompt()
+        scene.add(state.doorRotatePrompt)
+
         // Load door sounds
         const audioLoader = new THREE.AudioLoader()
         const listener = new THREE.AudioListener()
@@ -374,4 +378,50 @@ export function loadDoor(loader: GLTFLoader, scene: THREE.Scene, state: AppState
         resolve() // Still resolve to prevent hanging
     })
     })
+}
+
+// "rotate your phone" sign: a phone outline (animated in animate.ts) above two lines of text
+function createRotatePrompt(): THREE.Group {
+    const group = new THREE.Group()
+    group.position.set(0, 2.5, 13) // Same spot as the door UI
+    group.scale.setScalar(1.25)
+    group.visible = false
+
+    const canvas = document.createElement('canvas')
+    canvas.width = 128
+    canvas.height = 128
+    const ctx = canvas.getContext('2d')!
+    ctx.strokeStyle = '#e8e8e8'
+    ctx.fillStyle = '#e8e8e8'
+    ctx.lineWidth = 6
+    ctx.beginPath()
+    ctx.roundRect(42, 20, 44, 88, 9)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.roundRect(57, 96, 14, 4, 2)
+    ctx.fill()
+    const phoneTexture = new THREE.CanvasTexture(canvas)
+    const phone = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.4, 1.4),
+        new THREE.MeshBasicMaterial({ map: phoneTexture, transparent: true, side: THREE.DoubleSide })
+    )
+    phone.position.set(0, 1.6, 0)
+    phone.name = 'rotate_phone'
+    group.add(phone)
+
+    const title = new THREE.Mesh(
+        new THREE.PlaneGeometry(4, 1),
+        new THREE.MeshBasicMaterial({ map: createTextTexture('rotate your phone', 48), transparent: true, side: THREE.DoubleSide })
+    )
+    title.position.set(0, 0.1, 0)
+    group.add(title)
+
+    const subtitle = new THREE.Mesh(
+        new THREE.PlaneGeometry(4, 1),
+        new THREE.MeshBasicMaterial({ map: createTextTexture('this place only exists sideways', 28, '#999999'), transparent: true, side: THREE.DoubleSide })
+    )
+    subtitle.position.set(0, -0.5, 0)
+    group.add(subtitle)
+
+    return group
 }

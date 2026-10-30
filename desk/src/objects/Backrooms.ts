@@ -70,9 +70,9 @@ export function loadBackrooms(loader: GLTFLoader, scene: THREE.Scene, state: App
             }
         })
         
-        // Add lights at each light mesh position
-        // We need to wait until after the model is added to pivot and transformed
-        setTimeout(() => {
+        // Add lights at each light mesh position (getWorldPosition updates the
+        // matrices itself, so no need to wait a tick)
+        {
             lightMeshes.forEach(mesh => {
                 // Get world position of the mesh
                 const worldPosition = new THREE.Vector3()
@@ -85,7 +85,7 @@ export function loadBackrooms(loader: GLTFLoader, scene: THREE.Scene, state: App
                 scene.add(meshLight)
                 state.backroomsLights.push(meshLight)
             })
-        }, 100)
+        }
         
         // Backrooms Lighting (Yellow Haze) - Really bright, no fog
         const backroomsAmbient = new THREE.AmbientLight(0xffaa00, 3.0)
