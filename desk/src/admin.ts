@@ -307,6 +307,7 @@ function renderSocialClicksChart(): string {
                 <span class="type-emoji">${getSocialClickEmoji(item.type)}</span>
                 <span class="type-name">${item.type.replace('social_', '')}</span>
                 <span class="type-count">${formatNumber(item.count)}</span>
+                ${item.type === 'social_onlyfans' ? '<span class="type-count-extra" title="from zaap.bio">+4329</span>' : ''}
               </div>
               <div class="type-bar-container">
                 <div
