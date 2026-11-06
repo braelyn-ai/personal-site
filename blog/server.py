@@ -4,6 +4,7 @@
 import http.server
 import os
 import re
+import sys
 
 ALLOWED_ORIGIN = "https://braelyn.ai"
 
@@ -75,7 +76,9 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    PORT = int(os.environ.get("PORT", 8000))
+    # Port 8000 is what the host routes to; pass a port as an argument for local previews.
+    # (Not $PORT: the host sets that to something else.)
+    PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
     with http.server.ThreadingHTTPServer(("", PORT), CORSRequestHandler) as httpd:
         print(f"Serving on port {PORT} with CORS enabled for {ALLOWED_ORIGIN}")
         httpd.serve_forever()
