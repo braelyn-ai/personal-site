@@ -9,10 +9,13 @@ function slurp(eventType, eventData) {
 }
 
 // Track page view with the slug derived from the URL
-const slug = window.location.pathname.replace(/.*\/posts\//, '').replace('.html', '');
-if (slug && slug !== '/' && slug !== '') {
-    slurp('blog_post_read', slug);
-}
+(function () {
+    const m = window.location.pathname.match(/\/(posts|rides)\/([^/]*?)(\.html)?$/);
+    if (!m) return;
+    const [, section, slug] = m;
+    if (section === 'posts' && slug) slurp('blog_post_read', slug);
+    else if (section === 'rides') slurp(slug && slug !== 'index' ? 'blog_ride_read' : 'blog_rides_view', slug || undefined);
+})();
 
 // Track referrer
 if (document.referrer && !document.referrer.includes(location.hostname)) {

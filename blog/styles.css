@@ -361,3 +361,390 @@ hr {
         white-space: normal;
     }
 }
+
+/* ---------- Post lists ---------- */
+
+.post-item {
+    margin: 0;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+}
+.post-item:last-child {
+    border-bottom: none;
+}
+.post-link {
+    display: block;
+    text-decoration: none;
+    color: var(--text);
+}
+.post-link:hover .post-title {
+    color: var(--link);
+}
+.post-title {
+    display: block;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    transition: color 0.15s ease;
+    margin-bottom: 0.15rem;
+}
+.post-desc {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 0.15rem;
+}
+.post-meta {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+#posts-container {
+    margin-top: 0.5rem;
+}
+
+/* ---------- Rides ---------- */
+
+.ride-map {
+    position: relative;
+    height: 420px;
+    margin: 1.5rem 0 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--border);
+    z-index: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+/* Let the map break out of the narrow text column on wide screens */
+@media (min-width: 1201px) {
+    .ride-hero,
+    .ride-map,
+    .ride-stats,
+    .ride-profile {
+        width: 130%;
+        margin-left: -15%;
+    }
+}
+
+.ride-map img {
+    margin: 0;
+}
+
+.ride-map-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    transform: translateX(-50%);
+    z-index: 1000;
+    pointer-events: none;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 0.75rem;
+}
+
+.ride-map-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 120px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+[data-theme="dark"] .ride-map-streets {
+    filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+
+.ride-article {
+    overflow: visible;
+}
+
+.ride-dot {
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.ride-dot-start { background: #1fa34a; }
+.ride-dot-end { background: #222; }
+.ride-dot-wpt { background: #ff5a1f; border-width: 2px; }
+
+.leaflet-container .leaflet-marker-pane .ride-photo-pin img {
+    width: 36px;
+    height: 36px;
+    margin: 0;
+    max-width: none;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+}
+
+.ride-stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 1.75rem;
+    margin-top: 1rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+.ride-stat-value {
+    display: block;
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.ride-stat-label {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.ride-gpx-link {
+    margin-left: auto;
+    font-size: 0.8rem;
+}
+
+.ride-profile {
+    margin-top: 0.75rem;
+    margin-bottom: 2rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+.ride-profile svg {
+    display: block;
+    width: 100%;
+    height: 90px;
+    cursor: crosshair;
+    touch-action: pan-y;
+}
+
+.ride-profile-area { fill: rgba(255, 90, 31, 0.15); }
+.ride-profile-line { fill: none; stroke: #ff5a1f; stroke-width: 1.5; }
+.ride-profile-cursor { stroke: var(--text-secondary); stroke-width: 1; opacity: 0; }
+
+.ride-profile-readout {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.ride-meta {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+/* Hero photo: full frame, never cropped */
+.ride-hero {
+    margin: 1.5rem 0 0;
+}
+
+@media (min-width: 1201px) {
+    .ride-hero {
+        margin-left: -15%; /* line up with the map breakout */
+    }
+}
+
+.ride-hero img {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    border-radius: 6px;
+    cursor: zoom-in;
+}
+
+.ride-hero figcaption:empty {
+    display: none;
+}
+
+/* Embedded tweet. Before X's script runs (or if it's blocked) it's a plain link. */
+.ride-tweet {
+    margin: 1.5rem 0;
+    min-height: 1.5rem;
+}
+
+.ride-tweet blockquote.twitter-tweet {
+    margin: 0;
+    padding: 0;
+    border: none;
+    font-style: normal;
+}
+
+.ride-tweet blockquote.twitter-tweet a {
+    color: #ff5a1f;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.ride-tweet blockquote.twitter-tweet a:hover {
+    text-decoration: underline;
+}
+
+.ride-tweet .twitter-tweet-rendered {
+    margin: 0 auto !important;
+}
+
+/* Photo gallery: justified rows, every photo in its original aspect ratio.
+   Each figure grows in proportion to its aspect ratio (--ar = width / height),
+   so photos in a row come out the same height with nothing cropped. */
+.ride-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+}
+
+.ride-gallery figure {
+    flex: var(--ar, 1.5) 1 calc(var(--ar, 1.5) * 200px);
+    /* Rows share one height; a photo alone on a row stops at ~380px tall */
+    max-width: calc(var(--ar, 1.5) * 380px);
+    min-width: 0;
+    margin: 0;
+    border-radius: 4px;
+    transition: box-shadow 0.3s;
+}
+
+/* Vertical videos need more height to be watchable */
+.ride-gallery figure.ride-clip {
+    max-width: calc(var(--ar, 0.5625) * 560px);
+}
+
+.ride-gallery figure.wide {
+    flex-basis: 100%;
+    max-width: none;
+}
+
+.ride-gallery img {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    border-radius: 4px;
+    cursor: zoom-in;
+}
+
+.ride-gallery video {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 4px;
+    background: #000;
+}
+
+/* Video pins get a play badge */
+.ride-video-pin::after {
+    content: '▶';
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ff5a1f;
+    color: #fff;
+    font-size: 8px;
+    line-height: 16px;
+    text-align: center;
+}
+
+.ride-gallery figcaption:empty {
+    display: none;
+}
+
+.ride-gallery figcaption {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: 0.3rem;
+}
+
+.ride-photo-flash {
+    box-shadow: 0 0 0 4px #ff5a1f;
+}
+
+.ride-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: rgba(0, 0, 0, 0.92);
+    cursor: zoom-out;
+}
+
+.ride-lightbox.open {
+    display: flex;
+}
+
+.ride-lightbox img {
+    max-width: 100%;
+    max-height: calc(100vh - 6rem);
+    margin: 0;
+}
+
+.ride-lightbox p {
+    color: #ccc;
+    font-size: 0.9rem;
+    margin: 0.75rem 0 0;
+}
+
+/* Ride lists (homepage + rides index) */
+.ride-item {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--text);
+}
+
+.ride-item:last-child {
+    border-bottom: none;
+}
+
+.ride-item:hover .post-title {
+    color: var(--link);
+}
+
+.ride-thumb {
+    width: 96px;
+    min-width: 96px;
+    height: 72px;
+    object-fit: contain; /* whole photo, no crop */
+    border-radius: 4px;
+    margin: 0;
+}
+
+.section-more {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+    .ride-map {
+        height: 320px;
+    }
+
+    .ride-thumb {
+        width: 72px;
+        min-width: 72px;
+        height: 56px;
+    }
+}

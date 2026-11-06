@@ -86,6 +86,68 @@ Edit `posts.json` and add your new post:
 
 That's it! The homepage will automatically display your new post.
 
+## Adding a Ride
+
+Rides are motorcycle trip posts with an interactive route map built from a GPX
+file. They live in `rides/`, are listed in `rides.json`, and show up on the
+homepage, at `/rides/` (with a map of every route), and in the RSS feed.
+
+```bash
+# Create a ride, then open rides/<slug>.html and write the story
+uv run new_ride.py new \
+  --title "PCH to Big Sur" \
+  --gpx ~/Downloads/ride.gpx \
+  --photos ~/Desktop/bigsur \
+  --bike "Yamaha R1" \
+  --description "Fog, switchbacks, and one very judgmental cow."
+
+# Later: add more photos and/or swap in a refined GPX (your story is left alone)
+uv run new_ride.py update pch-to-big-sur --photos ~/Desktop/more --gpx ~/Downloads/fixed.gpx
+
+# Pick the hero photo (also the list thumbnail and social card)
+uv run new_ride.py update pch-to-big-sur --cover 07.jpg
+```
+
+Videos (`.mp4`/`.mov`) dropped in the same `--photos` folder are transcoded with
+ffmpeg to 1080p H.264 (HDR is converted to SDR), stripped of all metadata
+including the GPS iPhones embed, and given a poster frame (`vNN.mp4` + `vNN.jpg`).
+They're pinned on the map like photos. `.mp4` is tracked with Git LFS.
+
+Photos are never cropped: the hero runs full width, and the gallery lays photos
+out in rows of equal height, each sized by its own aspect ratio. The cover
+defaults to the first photo; pass `--cover` (an original filename on `new`, or a
+published name like `07.jpg` on `update`) to choose another.
+
+**Privacy:** the repo and the asset bucket are public, and deleting a file
+later doesn't remove it from git history or S3. So:
+
+- Put places you don't want on the internet in `.private/zones.json` (gitignored,
+  dockerignored). Points inside a zone are removed anywhere on the route, and
+  each radius is randomized per ride:
+  `[{"name": "home", "lat": 37.76, "lon": -122.43, "radius": 500}]`
+- `--privacy` (default 400 m) also trims the start and finish. Use
+  `--privacy 0` for rides between public places.
+- The published GPX is rebuilt with track points only: no waypoints, names,
+  device info or heart rate. `--strip-times` drops timestamps too.
+- Photos are resized, HEIC becomes JPEG, and all EXIF/GPS is stripped. Photos
+  are pinned on the map from their GPS or by matching their time to the GPX,
+  but never inside a private zone or more than 1 km from the route.
+- Keep raw GPX files in `.private/` too. Look at
+  `assets/rides/<slug>/route.gpx` before you commit.
+
+The map, stats and elevation profile are computed in the browser from the GPX
+by `ride-map.js`. Any `<figure data-lat="…" data-lng="…">` becomes a photo pin.
+Map tiles: OpenStreetMap, OpenTopoMap and Esri (no API keys).
+
+### rides.json Format
+
+- `title`, `slug`, `date`, `description`: same as posts
+- `gpx` (string): path to the GPX, relative to the blog root
+- `distanceMi` (number): shown in the list
+- `cover` (string, optional): hero photo and thumbnail, relative to the blog root
+- `bike` (string, optional)
+- `tags` (array, optional)
+
 ## posts.json Format
 
 Each post object in the JSON array has:

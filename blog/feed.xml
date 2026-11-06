@@ -5,8 +5,20 @@
     <link>https://blog.braelyn.ai</link>
     <description>A personal blog exploring technology, creativity, and the art of building meaningful things.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 07 Apr 2026 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 06 Nov 2026 01:51:56 +0000</lastBuildDate>
     <atom:link href="https://blog.braelyn.ai/feed.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Tokyo to Izu, Fuji and the Venus Line</title>
+      <link>https://blog.braelyn.ai/rides/japan-izu-fuji-venus-line.html</link>
+      <description>Four days on a ZX-6R: a Tokyo night ride, the Nishi-Izu Skyline (several times), Mt. Fuji, the Venus Line, and the volcanoes of Shiga Kogen.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/rides/japan-izu-fuji-venus-line.html</guid>
+      <pubDate>Fri, 16 Oct 2026 00:00:00 +0000</pubDate>
+      <category>Japan</category>
+      <category>Izu</category>
+      <category>Mt Fuji</category>
+      <category>Venus Line</category>
+      <category>Shiga Kogen</category>
+    </item>
     <item>
       <title>Stop Dooming: Codegen will have its Gang of Four moment</title>
       <link>https://blog.braelyn.ai/posts/codegen-compiler-arc.html</link>

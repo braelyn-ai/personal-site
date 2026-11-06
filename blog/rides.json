@@ -1,0 +1,19 @@
+[
+    {
+        "title": "Tokyo to Izu, Fuji and the Venus Line",
+        "slug": "japan-izu-fuji-venus-line",
+        "date": "2026-10-16",
+        "description": "Four days on a ZX-6R: a Tokyo night ride, the Nishi-Izu Skyline (several times), Mt. Fuji, the Venus Line, and the volcanoes of Shiga Kogen.",
+        "distanceMi": 601.7,
+        "gpx": "assets/rides/japan-izu-fuji-venus-line/route.gpx",
+        "tags": [
+            "Japan",
+            "Izu",
+            "Mt Fuji",
+            "Venus Line",
+            "Shiga Kogen"
+        ],
+        "bike": "2025 Kawasaki ZX-6R",
+        "cover": "assets/rides/japan-izu-fuji-venus-line/07.jpg"
+    }
+]

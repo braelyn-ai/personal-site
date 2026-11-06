@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate RSS feed (feed.xml) from posts.json"""
+"""Generate RSS feed (feed.xml) from posts.json and rides.json"""
 
 import json
 import xml.etree.ElementTree as ET
@@ -9,9 +9,15 @@ from pathlib import Path
 BLOG_URL = "https://blog.braelyn.ai"
 
 def generate_feed():
-    posts_path = Path(__file__).parent / "posts.json"
-    with open(posts_path) as f:
-        posts = json.load(f)
+    root = Path(__file__).parent
+    with open(root / "posts.json") as f:
+        posts = [{**p, "section": "posts"} for p in json.load(f)]
+    rides_path = root / "rides.json"
+    if rides_path.exists():
+        with open(rides_path) as f:
+            posts += [{**r, "section": "rides", "tags": r.get("tags") or ["Rides"]}
+                      for r in json.load(f)]
+    posts.sort(key=lambda p: p["date"], reverse=True)
 
     rss = ET.Element("rss", version="2.0", attrib={
         "xmlns:atom": "http://www.w3.org/2005/Atom",
@@ -37,11 +43,10 @@ def generate_feed():
     for post in posts:
         item = ET.SubElement(channel, "item")
         ET.SubElement(item, "title").text = post["title"]
-        ET.SubElement(item, "link").text = f"{BLOG_URL}/posts/{post['slug']}.html"
-        ET.SubElement(item, "description").text = post["description"]
-        ET.SubElement(item, "guid", isPermaLink="true").text = (
-            f"{BLOG_URL}/posts/{post['slug']}.html"
-        )
+        url = f"{BLOG_URL}/{post['section']}/{post['slug']}.html"
+        ET.SubElement(item, "link").text = url
+        ET.SubElement(item, "description").text = post.get("description", "")
+        ET.SubElement(item, "guid", isPermaLink="true").text = url
 
         pub_date = datetime.strptime(post["date"], "%Y-%m-%d").replace(
             tzinfo=timezone.utc

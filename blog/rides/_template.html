@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{DESCRIPTION}}">
+    <meta name="keywords" content="motorcycle, ride, route, {{KEYWORDS}}">
+    <meta name="author" content="Braelyn Boynton">
+    <meta property="og:title" content="{{TITLE}}">
+    <meta property="og:description" content="{{DESCRIPTION}}">
+    <meta property="og:image" content="https://blog.braelyn.ai/{{COVER}}">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://blog.braelyn.ai/rides/{{SLUG}}.html">
+    <meta property="og:site_name" content="Braelyn's Blog">
+    <meta property="article:published_time" content="{{DATE}}">
+    <meta property="article:author" content="Braelyn Boynton">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{TITLE}}">
+    <meta name="twitter:description" content="{{DESCRIPTION}}">
+    <meta name="twitter:image" content="https://blog.braelyn.ai/{{COVER}}">
+    <title>{{TITLE}}</title>
+    <link rel="icon" type="image/jpeg" href="../assets/me.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles.css">
+    <script src="../theme.js"></script>
+    <script defer src="../slurp.js"></script>
+    <script defer src="../sidebar.js"></script>
+    <script defer src="../ride-map.js"></script>
+    <link rel="canonical" href="https://blog.braelyn.ai/rides/{{SLUG}}.html">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "BlogPosting",
+          "@id": "https://blog.braelyn.ai/rides/{{SLUG}}.html",
+          "headline": "{{TITLE_JSON}}",
+          "description": "{{DESCRIPTION_JSON}}",
+          "datePublished": "{{DATE}}",
+          "dateModified": "{{DATE}}",
+          "author": { "@id": "https://braelyn.ai/#braelyn" },
+          "publisher": { "@id": "https://braelyn.ai/#braelyn" },
+          "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "https://blog.braelyn.ai/rides/{{SLUG}}.html"
+          },
+          "image": "https://blog.braelyn.ai/{{COVER}}",
+          "inLanguage": "en-US",
+          "isPartOf": { "@id": "https://blog.braelyn.ai/#blog" }
+        },
+        {
+          "@type": "Person",
+          "@id": "https://braelyn.ai/#braelyn",
+          "name": "Braelyn Boynton",
+          "url": "https://braelyn.ai",
+          "image": "https://blog.braelyn.ai/assets/me.jpg"
+        }
+      ]
+    }
+    </script>
+</head>
+
+<body>
+    <header>
+        <p><a href="./">← All rides</a></p>
+        <h1>{{TITLE}}</h1>
+        <p class="ride-meta"><time datetime="{{DATE}}">{{DATE_PRETTY}}</time>{{BIKE_META}}</p>
+    </header>
+
+    <main>
+        <article class="ride-article">
+            <!-- hero -->{{HERO}}<!-- /hero -->
+
+            <!-- The map, stats and elevation profile are all built from this GPX -->
+            <div class="ride-map" data-gpx="../{{GPX}}"></div>
+
+            <p>Write about the ride here.</p>
+
+            <!--
+              Photos. Any <figure> with data-lat/data-lng gets a pin on the map.
+              Add class="wide" to a figure to make it span the full width.
+              `new_ride.py update` adds new photos just before the /gallery marker.
+              You can also split the gallery up and put photos between paragraphs.
+            -->
+            <div class="ride-gallery">
+{{GALLERY}}
+                <!-- /gallery -->
+            </div>
+        </article>
+    </main>
+
+    <footer>
+        <hr>
+        <p><a href="./">← All rides</a> · <a href="../">Blog</a></p>
+    </footer>
+</body>
+
+</html>
