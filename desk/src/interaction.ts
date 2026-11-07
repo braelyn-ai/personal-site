@@ -96,34 +96,72 @@ export function setupInteractions(
 
     // Must run synchronously inside a user gesture for browsers to allow it
     function resumeAudio(): void {
-        if (listener.context.state !== 'running') {
-            listener.context.resume().catch(() => { /* retried on the next gesture */ })
+        const ctx = listener.context
+        if (ctx.state !== 'running') {
+            ctx.resume().catch((err: unknown) => console.warn('[audio] resume() rejected:', err))
         }
     }
-
-    // Shown only if the browser keeps audio blocked after the enter click
-    const audioHint = document.createElement('div')
-    audioHint.textContent = 'click anywhere to turn the music on'
-    Object.assign(audioHint.style, {
-        position: 'fixed', left: '50%', bottom: '10%', transform: 'translateX(-50%)',
-        zIndex: '10', color: '#fff', font: '16px monospace', opacity: '0.8',
-        pointerEvents: 'none', display: 'none',
+    listener.context.addEventListener('statechange', () => {
+        console.info('[audio] context state:', listener.context.state)
     })
-    document.body.appendChild(audioHint)
 
-    // Resolves once the music is actually audible: context running and its clock advancing
+    // Backup player. Some browsers keep Web Audio suspended even after a click; a plain
+    // <audio> element goes through a different autoplay path and usually still plays.
+    // It's started silently on the enter click (which unlocks it) and only turned up
+    // if Web Audio doesn't come alive. It skips the door/powder filter effects.
+    const fallbackMusic = new Audio(assetUrl('berghain.mp3') + '#t=120')
+    fallbackMusic.loop = true
+    fallbackMusic.preload = 'none'
+    let usingFallback = false
+
+    function unlockFallback(): void {
+        if (!fallbackMusic.paused) return
+        if (!usingFallback) fallbackMusic.volume = 0
+        fallbackMusic.play().catch((err: unknown) => console.warn('[audio] <audio> play() rejected:', err))
+    }
+
+    function stopMusic(): void {
+        musicWanted = false
+        fallbackMusic.pause()
+    }
+
+    function webAudioAudible(): boolean {
+        const ctx = listener.context
+        return ctx.state === 'running' && sound.isPlaying && ctx.currentTime > musicStartedAt + 0.05
+    }
+
+    function fallbackAudible(): boolean {
+        return !fallbackMusic.paused && fallbackMusic.readyState >= 3 && fallbackMusic.currentTime > 0
+    }
+
+    // Resolves once music is audibly playing through either path. Gives Web Audio
+    // 1.5s, then switches to the backup player; after 8s it lets the visitor in
+    // regardless, since a door that never opens is worse than no music.
     function waitUntilAudible(): Promise<void> {
         const waitStart = performance.now()
         return new Promise(resolve => {
             const check = () => {
-                const ctx = listener.context
-                if (ctx.state === 'running' && sound.isPlaying && ctx.currentTime > musicStartedAt + 0.05) {
-                    audioHint.style.display = 'none'
+                const elapsed = performance.now() - waitStart
+                if (!usingFallback && webAudioAudible()) {
+                    fallbackMusic.pause()
                     resolve()
                     return
                 }
-                if (ctx.state !== 'running' && performance.now() - waitStart > 1500) {
-                    audioHint.style.display = 'block'
+                if (!usingFallback && elapsed > 1500) {
+                    console.warn(`[audio] Web Audio still "${listener.context.state}" after 1.5s, switching to <audio> fallback`)
+                    usingFallback = true
+                    if (sound.isPlaying) sound.stop() // don't double up if the context wakes later
+                    fallbackMusic.volume = 0.5
+                    unlockFallback()
+                }
+                if (usingFallback && fallbackAudible()) {
+                    resolve()
+                    return
+                }
+                if (elapsed > 8000) {
+                    console.warn('[audio] Could not confirm music playback, opening the door anyway')
+                    resolve()
+                    return
                 }
                 setTimeout(check, 50)
             }
@@ -135,16 +173,18 @@ export function setupInteractions(
     function startMusic(): Promise<void> {
         musicWanted = true
         resumeAudio()
+        unlockFallback()
         if (!musicStart) {
             musicStart = musicBuffer.then(buffer => {
-                if (!buffer) {
-                    // Gave up after retries: let the visitor in rather than lock the door forever
-                    console.warn('Music unavailable, opening the door without it')
-                    return
-                }
                 if (!musicWanted) return
-                if (!sound.isPlaying) sound.play()
-                musicStartedAt = listener.context.currentTime
+                if (buffer) {
+                    if (!sound.isPlaying) sound.play()
+                    musicStartedAt = listener.context.currentTime
+                } else {
+                    // Web Audio couldn't load the track; go straight to the backup player
+                    usingFallback = true
+                    fallbackMusic.volume = 0.5
+                }
                 return waitUntilAudible().then(() => { state.isAudioPlaying = true })
             }).then(() => { state.introMusicReady = true })
         }
@@ -153,7 +193,11 @@ export function setupInteractions(
 
     // Any later gesture retries a blocked or interrupted context (e.g. iOS after a call)
     for (const type of ['click', 'touchend', 'keydown']) {
-        window.addEventListener(type, () => { if (musicWanted) resumeAudio() }, { capture: true })
+        window.addEventListener(type, () => {
+            if (!musicWanted) return
+            resumeAudio()
+            if (usingFallback) unlockFallback()
+        }, { capture: true })
     }
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && musicWanted) resumeAudio()
@@ -620,7 +664,7 @@ export function setupInteractions(
                     if (state.technoMusic && state.technoMusic.isPlaying) {
                         state.technoMusic.stop()
                     }
-                    musicWanted = false
+                    stopMusic()
 
                     // Hide the warning text
                     if (state.emergencyText) state.emergencyText.visible = false

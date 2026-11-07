@@ -27,6 +27,14 @@ export interface AnimationDependencies {
 export function createAnimationLoop(deps: AnimationDependencies): () => void {
     const { controls, camera, state, crtPass, terminal, oscilloscope, composer, renderPixelatedPass, whiteOutPass } = deps
 
+    // Jumpscare lunge: rush in from off-screen left to right in the camera's face
+    const LUNGE_TARGET = new THREE.Vector3(1, 1, 2)
+    const LUNGE_DURATION = 120 // ms
+    const LUNGE_SIDE_OFFSET = 14 // how far left of the camera it starts (off-screen)
+    const lungeStart = new THREE.Vector3()
+    let lungeStartTime: number | null = null
+    const baseRotation = new THREE.Euler()
+
     function animate(): void {
         requestAnimationFrame(animate)
         controls.update()
@@ -210,10 +218,12 @@ export function createAnimationLoop(deps: AnimationDependencies): () => void {
                         state.horrorFadeSound.stop()
                     }
                     
-                    // Move monster right in front of camera
-                    const cameraDirection = new THREE.Vector3()
-                    camera.getWorldDirection(cameraDirection)
-                    state.horrorMonsterPivot.position.set(1, 1, 2)
+                    // Lunge at the camera (animated below)
+                    // Start off the left edge of the screen, level with where it ends up
+                    const cameraRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0)
+                    lungeStart.copy(LUNGE_TARGET).addScaledVector(cameraRight, -LUNGE_SIDE_OFFSET)
+                    baseRotation.copy(state.horrorMonsterPivot.rotation)
+                    lungeStartTime = Date.now()
                     
                     // Set opacity back to 1 instantly
                     state.horrorMonsterPivot.traverse(child => {
@@ -267,6 +277,25 @@ export function createAnimationLoop(deps: AnimationDependencies): () => void {
                 }
             }
             
+            // Jumpscare: accelerate into the camera, then shudder up close
+            if (state.jumpscareTriggered && lungeStartTime !== null) {
+                const pivot = state.horrorMonsterPivot
+                const t = Math.min((Date.now() - lungeStartTime) / LUNGE_DURATION, 1)
+                // Ease-in: starts fast and keeps speeding up, so it slams into view
+                pivot.position.lerpVectors(lungeStart, LUNGE_TARGET, t * t * t)
+                if (t >= 1) {
+                    const jitter = 0.2
+                    pivot.position.x += (Math.random() - 0.5) * jitter
+                    pivot.position.y += (Math.random() - 0.5) * jitter
+                    pivot.position.z += (Math.random() - 0.5) * jitter * 0.5
+                    pivot.rotation.set(
+                        baseRotation.x + (Math.random() - 0.5) * 0.1,
+                        baseRotation.y + (Math.random() - 0.5) * 0.1,
+                        baseRotation.z + (Math.random() - 0.5) * 0.15
+                    )
+                }
+            }
+
             // Sporadic head bobbing animation when visible
             if (state.horrorMonsterPivot.visible && !state.jumpscareTriggered) {
                 const baseY = -3.5 // Original y position from HorrorMonster.ts
