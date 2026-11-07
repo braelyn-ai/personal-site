@@ -84,7 +84,12 @@ Edit `posts.json` and add your new post:
 
 **Important:** The `slug` must match your HTML filename (without `.html`)
 
-That's it! The homepage will automatically display your new post.
+Then rebuild the generated files (RSS feed, sitemap, and the post lists baked
+into `index.html` / `rides/index.html` so search engines see them without JS):
+
+```bash
+python3 generate_feed.py
+```
 
 ## Adding a Ride
 
