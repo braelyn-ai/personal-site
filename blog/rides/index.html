@@ -4,27 +4,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Motorcycle rides by Braelyn Boynton: routes, maps and photos.">
+    <meta name="description" content="Motorcycle trips around the world by Braelyn Boynton: routes, interactive maps, photos and stories.">
     <meta name="author" content="Braelyn Boynton">
-    <title>Rides · Braelyn's Blog</title>
-    <link rel="icon" type="image/jpeg" href="../assets/me.jpg">
+    <title>Motorcycle Rides: Routes, Maps &amp; Photos · Braelyn Boynton</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
+    <link rel="apple-touch-icon" href="../assets/icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../styles.css?v=2">
     <script src="../theme.js?v=2"></script>
     <script defer src="../slurp.js?v=2"></script>
-    <script defer src="../rides-list.js?v=2"></script>
     <script defer src="../ride-map.js?v=2"></script>
     <link rel="canonical" href="https://blog.braelyn.ai/rides/">
 
     <meta property="og:type" content="website">
     <meta property="og:title" content="Rides · Braelyn's Blog">
     <meta property="og:url" content="https://blog.braelyn.ai/rides/">
-    <meta property="og:image" content="https://blog.braelyn.ai/assets/me.jpg">
+    <meta property="og:image" content="https://blog.braelyn.ai/assets/rides/japan-izu-fuji-venus-line/07.jpg">
     <meta property="og:site_name" content="Braelyn's Blog">
-    <meta property="og:description" content="Motorcycle rides by Braelyn Boynton: routes, maps and photos.">
+    <meta property="og:description" content="Motorcycle trips by Braelyn Boynton: routes, maps, photos and stories.">
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Rides · Braelyn's Blog">
+    <meta name="twitter:description" content="Motorcycle trips by Braelyn Boynton: routes, maps, photos and stories.">
+    <meta name="twitter:image" content="https://blog.braelyn.ai/assets/rides/japan-izu-fuji-venus-line/07.jpg">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "@id": "https://blog.braelyn.ai/rides/",
+      "name": "Motorcycle Rides",
+      "url": "https://blog.braelyn.ai/rides/",
+      "isPartOf": { "@id": "https://blog.braelyn.ai/#blog" },
+      "author": { "@id": "https://braelyn.ai/#braelyn" },
+      "inLanguage": "en-US"
+    }
+    </script>
 </head>
 
 <body>
@@ -36,8 +51,18 @@
 
     <main>
         <div class="ride-map" data-overview="../rides.json" data-base="../"></div>
-        <div id="rides-container" style="margin-top: 1.5rem;"></div>
-        <p id="rides-empty" hidden>No rides posted yet. The bike is probably in the shop.</p>
+        <div id="rides-container" style="margin-top: 1.5rem;">
+            <!-- rides:start -->
+            <a class="ride-item" href="../rides/japan-izu-fuji-venus-line.html" data-slug="japan-izu-fuji-venus-line">
+                <img class="ride-thumb" src="../assets/rides/japan-izu-fuji-venus-line/07.jpg" alt="" loading="lazy">
+                <div>
+                    <span class="post-title">Tokyo to Izu, Fuji and the Venus Line</span>
+                    <span class="post-desc">Four days on a ZX-6R: a Tokyo night ride, the Nishi-Izu Skyline (several times), Mt. Fuji, the Venus Line, and the volcanoes of Shiga Kogen.</span>
+                    <span class="post-meta"><time datetime="2026-10-16">Oct 16, 2026</time> · 602 mi · 2025 Kawasaki ZX-6R</span>
+                </div>
+            </a>
+            <!-- rides:end -->
+        </div>
     </main>
 
     <footer>
@@ -46,13 +71,10 @@
     </footer>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            fetch('../rides.json')
-                .then(r => r.json())
-                .then(rides => {
-                    if (!rides.length) document.getElementById('rides-empty').hidden = false;
-                    renderRides(rides, document.getElementById('rides-container'), '../');
-                });
+        document.querySelectorAll('.ride-item').forEach(link => {
+            link.addEventListener('click', () => {
+                if (typeof slurp === 'function') slurp('blog_ride_click', link.dataset.slug);
+            });
         });
     </script>
 </body>

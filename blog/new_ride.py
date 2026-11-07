@@ -557,7 +557,8 @@ def cmd_new(args):
         "DESCRIPTION_JSON": json_str(args.description),
         "TITLE": esc(args.title),
         "DESCRIPTION": esc(args.description),
-        "KEYWORDS": esc(", ".join(tags)),
+        # The template already lists "motorcycle, ride, route"
+        "KEYWORDS": esc(", ".join(t for t in tags if t.lower() not in ("motorcycle", "ride", "route"))),
         "SLUG": slug,
         "DATE": date,
         "DATE_PRETTY": datetime.fromisoformat(date).strftime("%B %-d, %Y"),
