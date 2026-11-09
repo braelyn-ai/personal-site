@@ -1,6 +1,8 @@
 .private/
 new_ride.py
 rides/_template.html
+new_urbex.py
+urbex/_template.html
 __pycache__
 # Videos are Git LFS and stream from the asset bucket
 assets/**/*.mp4

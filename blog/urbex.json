@@ -1,0 +1,214 @@
+[
+    {
+        "title": "Wittstock",
+        "slug": "wittstock",
+        "date": "2026-06-24",
+        "description": "Soviet-era halls, a gym, a theater and a Lenin statue with something to say, on a lake in northern Brandenburg.",
+        "area": "Wittstock, Brandenburg, Germany",
+        "lat": 53.16,
+        "lon": 12.48,
+        "cover": "assets/urbex/wittstock/35.jpg",
+        "tags": [
+            "Brandenburg",
+            "Germany",
+            "Soviet"
+        ],
+        "region": "Germany"
+    },
+    {
+        "title": "Fürstenberg",
+        "slug": "fuerstenberg",
+        "date": "2026-06-24",
+        "description": "A giant 1912 flour mill on the edge of a lake, rotting floor by floor. Best sunset of the trip.",
+        "area": "Fürstenberg/Havel, Brandenburg, Germany",
+        "lat": 53.19,
+        "lon": 13.14,
+        "cover": "assets/urbex/fuerstenberg/18.jpg",
+        "tags": [
+            "Brandenburg",
+            "Germany",
+            "mill"
+        ],
+        "region": "Germany"
+    },
+    {
+        "title": "Pacific Steel Casting",
+        "slug": "pacific-steel",
+        "date": "2025-12-07",
+        "description": "An 84-year-old steel foundry right next to I-80, empty since 2018.",
+        "area": "West Berkeley, California",
+        "lat": 37.87,
+        "lon": -122.3,
+        "cover": "assets/urbex/pacific-steel/31.jpg",
+        "tags": [
+            "Berkeley",
+            "California",
+            "factory"
+        ],
+        "region": "Bay Area"
+    },
+    {
+        "title": "Ferry Point",
+        "slug": "ferry-point",
+        "date": "2025-12-07",
+        "description": "The end of the Santa Fe Railway, where trains used to roll onto ferries. Now it's graffiti and a rusty gantry over the bay.",
+        "area": "Richmond, California",
+        "lat": 37.91,
+        "lon": -122.39,
+        "cover": "assets/urbex/ferry-point/14.jpg",
+        "tags": [
+            "Richmond",
+            "California",
+            "railroad",
+            "graffiti"
+        ],
+        "region": "Bay Area"
+    },
+    {
+        "title": "Point Molate",
+        "slug": "point-molate",
+        "date": "2025-12-07",
+        "description": "Derelict Navy cottages at what used to be the world's largest winery.",
+        "area": "Richmond, California",
+        "lat": 37.95,
+        "lon": -122.42,
+        "cover": "assets/urbex/point-molate/09.jpg",
+        "tags": [
+            "Richmond",
+            "California",
+            "Navy"
+        ],
+        "region": "Bay Area"
+    },
+    {
+        "title": "Teufelsberg",
+        "slug": "teufelsberg",
+        "date": "2025-08-18",
+        "description": "A Cold War spy station on a hill made of Berlin's WWII rubble, now an open-air graffiti gallery.",
+        "area": "Grunewald, Berlin, Germany",
+        "lat": 52.5,
+        "lon": 13.24,
+        "cover": "assets/urbex/teufelsberg/13.jpg",
+        "tags": [
+            "Berlin",
+            "Germany",
+            "Cold War"
+        ],
+        "region": "Germany",
+        "commercialized": true
+    },
+    {
+        "title": "Wünsdorf",
+        "slug": "wunsdorf",
+        "date": "2025-08-16",
+        "description": "The Soviet army's secret headquarters in East Germany, and a House of Officers with Lenin still standing out front.",
+        "area": "Wünsdorf, Brandenburg, Germany",
+        "lat": 52.17,
+        "lon": 13.47,
+        "cover": "assets/urbex/wunsdorf/44.jpg",
+        "tags": [
+            "Brandenburg",
+            "Germany",
+            "Soviet"
+        ],
+        "region": "Germany"
+    },
+    {
+        "title": "Jüterbog",
+        "slug": "juterbog",
+        "date": "2025-08-16",
+        "description": "A secret Luftwaffe technical school, later Soviet, gone to the forest, until security found us.",
+        "area": "Jüterbog, Brandenburg, Germany",
+        "lat": 51.99,
+        "lon": 12.97,
+        "cover": "assets/urbex/juterbog/53.jpg",
+        "tags": [
+            "Brandenburg",
+            "Germany",
+            "Soviet",
+            "air base"
+        ],
+        "region": "Germany"
+    },
+    {
+        "title": "Spreepark",
+        "slug": "spreepark",
+        "date": "2025-08-06",
+        "description": "Berlin's abandoned amusement park, twice: thrown out in ten minutes the first time, back with a plan the second, just as it was being demolished.",
+        "area": "Plänterwald, Berlin, Germany",
+        "lat": 52.49,
+        "lon": 13.49,
+        "cover": "assets/urbex/spreepark/20.jpg",
+        "tags": [
+            "Berlin",
+            "Germany",
+            "amusement park"
+        ],
+        "region": "Germany",
+        "demolished": true
+    },
+    {
+        "title": "The Seismic Office, Treasure Island",
+        "slug": "treasure-island-seismic-office",
+        "date": "2025-05-11",
+        "description": "An abandoned seismic retrofitting office on a Navy island in the middle of the bay. Went twice, the second time just after a fire. Now it’s gone.",
+        "area": "Treasure Island, San Francisco, California",
+        "lat": 37.82,
+        "lon": -122.37,
+        "cover": "assets/urbex/treasure-island-seismic-office/10.jpg",
+        "tags": [
+            "San Francisco",
+            "California",
+            "Navy"
+        ],
+        "region": "Bay Area",
+        "demolished": true
+    },
+    {
+        "title": "Rüdersdorf",
+        "slug": "ruedersdorf",
+        "date": "2024-08-29",
+        "description": "A 1940s 'super cement works' turned GDR phosphate plant, abandoned since 1999. I've done it twice.",
+        "area": "Rüdersdorf bei Berlin, Brandenburg, Germany",
+        "lat": 52.48,
+        "lon": 13.79,
+        "cover": "assets/urbex/ruedersdorf/110.jpg",
+        "tags": [
+            "Brandenburg",
+            "Germany",
+            "factory"
+        ],
+        "region": "Germany"
+    },
+    {
+        "title": "Nazi bunkers in the Calanques",
+        "slug": "calanques-bunkers",
+        "date": "2022-10-07",
+        "description": "German WWII bunkers and old French forts on the rocky tip of the Calanques, covered in graffiti and staring out at the Mediterranean.",
+        "area": "Les Goudes, Marseille, France",
+        "lat": 43.22,
+        "lon": 5.35,
+        "cover": "assets/urbex/calanques-bunkers/08.jpg",
+        "tags": [
+            "Marseille",
+            "France",
+            "WWII",
+            "bunkers"
+        ]
+    },
+    {
+        "title": "Indiana Women's Prison",
+        "slug": "indiana-womens-prison",
+        "date": "2022-06-29",
+        "description": "America's first separate prison for women, opened in 1873 and empty since 2017. Had to peep it before it was all demolished.",
+        "area": "Near Eastside, Indianapolis, Indiana",
+        "lat": 39.77,
+        "lon": -86.13,
+        "cover": "assets/urbex/indiana-womens-prison/24.jpg",
+        "tags": [
+            "Indianapolis",
+            "Indiana",
+            "prison"
+        ]
+    }
+]

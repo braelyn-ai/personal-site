@@ -52,7 +52,7 @@ except ImportError:
 
 ROOT = Path(__file__).parent
 ZONES_FILE = ROOT / ".private" / "zones.json"
-PHOTO_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
+PHOTO_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tif", ".tiff"}
 VIDEO_EXTS = {".mp4", ".mov", ".m4v"}
 MAX_VIDEO_PX = 1920  # long side
 MAX_PHOTO_PX = 2000
@@ -292,37 +292,52 @@ def check_pin(lat, lon, how, zones, start, end, end_trim_m, track):
     return lat, lon, how
 
 
-def load_photos(photo_dir, kept, zones, raw, end_trim_m):
-    files = sorted(p for p in Path(photo_dir).expanduser().iterdir() if p.suffix.lower() in PHOTO_EXTS)
-    track = [p for seg in kept for p in seg]
-    start, end = raw[0][0].ll, raw[-1][-1].ll
-    photos = []
-    for f in files:
-        try:
-            img = Image.open(f)
-            img.load()
-        except Exception as e:
-            print(f"  skip {f.name}: {e}")
-            continue
-        lat, lon, local_t, utc_t = photo_info(img)
-        how = "exif gps"
-        if lat is None:
-            loc = locate_by_time(utc_t, track)
-            lat, lon = loc if loc else (None, None)
-            how = "matched by time" if loc else "no location"
-        lat, lon, how = check_pin(lat, lon, how, zones, start, end, end_trim_m, track)
-        icc = img.info.get("icc_profile")
-        img = ImageOps.exif_transpose(img).convert("RGB")
-        img.thumbnail((MAX_PHOTO_PX, MAX_PHOTO_PX))
-        photos.append({"img": img, "icc": icc, "lat": lat, "lon": lon, "local": local_t, "name": f.name, "how": how})
+def read_photo(f):
+    """Opens a photo: (upright resized RGB image, icc, exif lat, lon, local time, utc time), or None."""
+    try:
+        img = Image.open(f)
+        img.load()
+    except Exception as e:
+        print(f"  skip {f.name}: {e}")
+        return None
+    lat, lon, local_t, utc_t = photo_info(img)
+    icc = img.info.get("icc_profile")
+    img = ImageOps.exif_transpose(img).convert("RGB")
+    img.thumbnail((MAX_PHOTO_PX, MAX_PHOTO_PX))
+    return img, icc, lat, lon, local_t, utc_t
 
+
+def photo_files(photo_dir):
+    return sorted(p for p in Path(photo_dir).expanduser().iterdir() if p.suffix.lower() in PHOTO_EXTS)
+
+
+def sort_photos(photos):
     # Chronological by the camera's wall-clock time when every photo has one
     if photos and all(p["local"] for p in photos):
         photos.sort(key=lambda p: p["local"])
     return photos
 
 
-def save_photos(photos, out_dir, slug, start_index):
+def load_photos(photo_dir, kept, zones, raw, end_trim_m):
+    track = [p for seg in kept for p in seg]
+    start, end = raw[0][0].ll, raw[-1][-1].ll
+    photos = []
+    for f in photo_files(photo_dir):
+        r = read_photo(f)
+        if not r:
+            continue
+        img, icc, lat, lon, local_t, utc_t = r
+        how = "exif gps"
+        if lat is None:
+            loc = locate_by_time(utc_t, track)
+            lat, lon = loc if loc else (None, None)
+            how = "matched by time" if loc else "no location"
+        lat, lon, how = check_pin(lat, lon, how, zones, start, end, end_trim_m, track)
+        photos.append({"img": img, "icc": icc, "lat": lat, "lon": lon, "local": local_t, "name": f.name, "how": how})
+    return sort_photos(photos)
+
+
+def save_photos(photos, out_dir, slug, start_index, section="rides"):
     for i, p in enumerate(photos, start_index):
         name = f"{i:02d}.jpg"
         # No exif= and no comment → no GPS, camera or owner metadata. ICC is kept so
@@ -332,7 +347,7 @@ def save_photos(photos, out_dir, slug, start_index):
             kwargs["icc_profile"] = p["icc"]
         p["img"].info.pop("comment", None)
         p["img"].save(out_dir / name, "JPEG", **kwargs)
-        p["src"] = f"assets/rides/{slug}/{name}"
+        p["src"] = f"assets/{section}/{slug}/{name}"
         print(f"  {p['name']} → {name} ({p['how']})")
 
 
@@ -342,16 +357,17 @@ def _probe(f):
     return json.loads(out)
 
 
-def process_videos(photo_dir, kept, zones, raw, end_trim_m, out_dir, slug, start_index):
+def process_videos(photo_dir, kept, zones, raw, end_trim_m, out_dir, slug, start_index, section="rides"):
     """Transcode videos in the folder to web-friendly 1080p H.264 with all metadata
-    (including the GPS iPhones embed) stripped, plus a poster frame."""
+    (including the GPS iPhones embed) stripped, plus a poster frame.
+    With raw=None (no route) videos are never located or pinned."""
     files = sorted(p for p in Path(photo_dir).expanduser().iterdir() if p.suffix.lower() in VIDEO_EXTS)
     if not files:
         return []
     if not shutil.which("ffmpeg"):
         sys.exit("Found videos but no ffmpeg. Install it (brew install ffmpeg) or move the videos out.")
-    track = [p for seg in kept for p in seg]
-    start, end = raw[0][0].ll, raw[-1][-1].ll
+    track = [p for seg in kept for p in seg] if raw else []
+    start, end = (raw[0][0].ll, raw[-1][-1].ll) if raw else (None, None)
     videos = []
     print("Videos:")
     for i, f in enumerate(files, start_index):
@@ -362,9 +378,12 @@ def process_videos(photo_dir, kept, zones, raw, end_trim_m, out_dir, slug, start
         lat = lon = None
         how = "no location"
         m = re.match(r"([+-]\d+\.\d+)([+-]\d+\.\d+)", tags.get("com.apple.quicktime.location.ISO6709") or tags.get("location") or "")
-        if m:
-            lat, lon, how = float(m.group(1)), float(m.group(2)), "video gps"
-        lat, lon, how = check_pin(lat, lon, how, zones, start, end, end_trim_m, track)
+        if raw is None:
+            how = "not pinned"
+        else:
+            if m:
+                lat, lon, how = float(m.group(1)), float(m.group(2)), "video gps"
+            lat, lon, how = check_pin(lat, lon, how, zones, start, end, end_trim_m, track)
 
         name = f"v{i:02d}"
         mp4, poster = out_dir / f"{name}.mp4", out_dir / f"{name}.jpg"
@@ -390,8 +409,8 @@ def process_videos(photo_dir, kept, zones, raw, end_trim_m, out_dir, slug, start
         dur = float(out["format"]["duration"])
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{min(1.0, dur / 3) if dur < 20 else dur * 0.2:.2f}",
                         "-i", str(mp4), "-frames:v", "1", "-q:v", "3", "-map_metadata", "-1", str(poster)], check=True)
-        src = f"assets/rides/{slug}/{mp4.name}"
-        videos.append({"kind": "video", "src": src, "poster": f"assets/rides/{slug}/{poster.name}",
+        src = f"assets/{section}/{slug}/{mp4.name}"
+        videos.append({"kind": "video", "src": src, "poster": f"assets/{section}/{slug}/{poster.name}",
                        "w": ov["width"], "h": ov["height"], "lat": lat, "lon": lon, "name": f.name})
         print(f"  {f.name} → {mp4.name} ({mp4.stat().st_size / 1e6:.1f} MB, {dur:.0f}s, {how})")
     return videos
@@ -478,15 +497,15 @@ def set_cover(text, src):
     return text
 
 
-def resolve_cover(name, slug, photos=()):
+def resolve_cover(name, slug, photos=(), section="rides"):
     """--cover takes a published name (07.jpg) or the original filename from this run."""
     for p in photos:
         if p["name"] == name:
             return p["src"]
-    src = f"assets/rides/{slug}/{name}"
+    src = f"assets/{section}/{slug}/{name}"
     if (ROOT / src).is_file():
         return src
-    sys.exit(f"No photo '{name}' in this run or in assets/rides/{slug}/.")
+    sys.exit(f"No photo '{name}' in this run or in assets/{section}/{slug}/.")
 
 
 # ---------------- rides.json / feed ----------------
@@ -656,7 +675,7 @@ def main():
     n = sub.add_parser("new", help="create a ride")
     n.add_argument("--title", required=True)
     n.add_argument("--gpx", required=True, type=Path)
-    n.add_argument("--photos", type=Path, help="folder of photos (jpg/png/heic) and videos (mp4/mov; needs ffmpeg)")
+    n.add_argument("--photos", type=Path, help="folder of photos (jpg/png/heic/tif) and videos (mp4/mov; needs ffmpeg)")
     n.add_argument("--date", help="YYYY-MM-DD (default: first photo's date, else the GPX's)")
     n.add_argument("--slug")
     n.add_argument("--cover", help="photo for the hero, thumbnail and social cards (original filename; default: the first photo)")

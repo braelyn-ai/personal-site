@@ -6,6 +6,12 @@
 //
 //   <div class="ride-map" data-overview="../rides.json" data-base="../"></div>
 //     → every ride on one map, each route links to its page.
+//
+//   <div class="ride-map" data-area-lat="53.16" data-area-lng="12.48" data-area-radius="3000"></div>
+//     → urbex posts: a fuzzy circle around the area, never a pin.
+//
+//   <div class="ride-map" data-urbex-overview="../urbex.json" data-base="../"></div>
+//     → every urbex spot as a cover-photo pin at its (already fuzzed) town-level spot.
 (function () {
     const LEAFLET = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet';
     // Subresource integrity: the browser refuses the files if the CDN ever serves something else
@@ -13,6 +19,8 @@
     const SRI_CSS = 'sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H';
     const ROUTE_COLOR = '#ff5a1f';
     const M_PER_MI = 1609.344;
+    // Urbex maps stop zooming before the satellite view could pick out a building
+    const URBEX_MAX_ZOOM = 13;
     const FT_PER_M = 3.28084;
 
     let leafletPromise;
@@ -331,6 +339,37 @@
 
     // ---------- Overview of all rides ----------
 
+    // One photo pin per ride (its cover shot), on the route point nearest the middle
+    // of the ride, so rides stay recognisable when the map is zoomed out to the world.
+    // labels: 'always' (wide maps), 'hover' (narrow maps) or 'none' (the small front-page map)
+    function addCoverPin(L, group, ride, segs, base, labels) {
+        const pts = segs.flat();
+        if (!pts.length || !ride.cover) return;
+        const lats = pts.map(p => p.lat), lngs = pts.map(p => p.lng);
+        const mid = { lat: (Math.min(...lats) + Math.max(...lats)) / 2, lng: (Math.min(...lngs) + Math.max(...lngs)) / 2 };
+        const at = pts.reduce((best, p) =>
+            (p.lat - mid.lat) ** 2 + (p.lng - mid.lng) ** 2 < (best.lat - mid.lat) ** 2 + (best.lng - mid.lng) ** 2 ? p : best);
+        coverPinAt(L, group, ride, at, `${base}rides/${ride.slug}.html`, base, labels);
+    }
+
+    // A round cover-photo pin (or a plain dot without a cover) that links to `href`
+    function coverPinAt(L, group, entry, at, href, base, labels) {
+        const icon = entry.cover ? L.divIcon({
+            className: 'ride-photo-pin ride-cover-pin',
+            html: `<img src="${base + entry.cover}" alt="${entry.title.replace(/"/g, '&quot;')}">`,
+            iconSize: labels === 'always' ? [52, 52] : [40, 40],
+        }) : dot(L, 'ride-dot-wpt', 16);
+        const marker = L.marker([at.lat, at.lng], { icon, riseOnHover: true })
+            .on('click', () => { location.href = href; })
+            .addTo(group);
+        if (labels !== 'none') {
+            marker.bindTooltip(entry.title, {
+                permanent: labels === 'always', direction: 'bottom',
+                offset: [0, labels === 'always' ? 28 : 22], className: 'ride-cover-label',
+            });
+        }
+    }
+
     async function renderOverview(el) {
         const base = el.dataset.base || '';
         const [L, rides] = await Promise.all([
@@ -345,7 +384,10 @@
         await Promise.all(withGpx.map(async (ride) => {
             try {
                 const text = await fetch(base + ride.gpx).then(r => r.text());
-                for (const seg of parseGpx(text)) {
+                const segs = parseGpx(text);
+                addCoverPin(L, group, ride, segs, base,
+                    el.classList.contains('ride-map-mini') ? 'none' : el.clientWidth >= 720 ? 'always' : 'hover');
+                for (const seg of segs) {
                     const line = L.polyline(seg.map(p => [p.lat, p.lng]), {
                         color: ROUTE_COLOR, weight: 3, opacity: 0.75,
                     });
@@ -359,6 +401,45 @@
         }));
         if (group.getLayers().length) map.fitBounds(group.getBounds(), { padding: [24, 24] });
         else el.remove();
+    }
+
+    const pinLabels = (el) => el.classList.contains('ride-map-mini') ? 'none' : el.clientWidth >= 720 ? 'always' : 'hover';
+
+    // ---------- Urban exploration ----------
+
+    // Only a fuzzy circle: the coordinates are already rounded to the nearest town
+    async function renderArea(el) {
+        const lat = parseFloat(el.dataset.areaLat);
+        const lng = parseFloat(el.dataset.areaLng);
+        const radius = parseFloat(el.dataset.areaRadius) || 3000;
+        if (!isFinite(lat) || !isFinite(lng)) throw new Error('No area coordinates');
+        const L = await loadLeaflet();
+        const map = makeMap(L, el);
+        map.setMaxZoom(URBEX_MAX_ZOOM);
+        map.fitBounds(L.latLng(lat, lng).toBounds(radius * 2), { padding: [16, 16] });
+        L.circle([lat, lng], {
+            radius, color: ROUTE_COLOR, weight: 2, dashArray: '6 6', fillColor: ROUTE_COLOR, fillOpacity: 0.15,
+            interactive: false,
+        }).addTo(map);
+    }
+
+    async function renderUrbexOverview(el) {
+        const base = el.dataset.base || '';
+        const [L, spots] = await Promise.all([
+            loadLeaflet(),
+            fetch(el.dataset.urbexOverview).then(r => r.json()),
+        ]);
+        const located = spots.filter(s => isFinite(s.lat) && isFinite(s.lon));
+        if (!located.length) { el.remove(); return; }
+
+        const map = makeMap(L, el);
+        map.setMaxZoom(URBEX_MAX_ZOOM);
+        const group = L.featureGroup().addTo(map);
+        const labels = pinLabels(el);
+        for (const s of located) {
+            coverPinAt(L, group, s, { lat: s.lat, lng: s.lon }, `${base}urbex/${s.slug}.html`, base, labels);
+        }
+        map.fitBounds(group.getBounds(), { padding: [40, 40], maxZoom: 9 });
     }
 
     // ---------- Photo lightbox ----------
@@ -427,34 +508,111 @@
         });
     }
 
+    // Click a photo to open it; arrows, buttons or swipes step through every
+    // photo on the page (hero first), wrapping at the ends.
     function setupLightbox() {
-        const imgs = document.querySelectorAll('.ride-hero img, .ride-gallery img');
+        const imgs = [...document.querySelectorAll('.ride-hero img, .ride-gallery figure:not(.ride-clip) img')];
         if (!imgs.length) return;
         const box = document.createElement('div');
         box.className = 'ride-lightbox';
-        box.innerHTML = '<img alt=""><p></p>';
+        box.setAttribute('role', 'dialog');
+        box.setAttribute('aria-modal', 'true');
+        box.setAttribute('aria-label', 'Photo viewer');
+        box.innerHTML =
+            '<img alt=""><p class="ride-lightbox-cap"></p>' +
+            '<span class="ride-lightbox-count" aria-live="polite"></span>' +
+            '<button type="button" class="ride-lightbox-nav prev" aria-label="Previous photo">&#8249;</button>' +
+            '<button type="button" class="ride-lightbox-nav next" aria-label="Next photo">&#8250;</button>' +
+            '<button type="button" class="ride-lightbox-close" aria-label="Close">&times;</button>';
         document.body.appendChild(box);
-        const close = () => box.classList.remove('open');
-        box.addEventListener('click', close);
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-        imgs.forEach((img) => img.addEventListener('click', () => {
-            box.querySelector('img').src = img.currentSrc || img.src;
-            box.querySelector('img').alt = img.alt;
-            const cap = img.closest('figure')?.querySelector('figcaption');
-            box.querySelector('p').textContent = cap ? cap.textContent : '';
+        const view = box.querySelector('img');
+        const cap = box.querySelector('.ride-lightbox-cap');
+        const count = box.querySelector('.ride-lightbox-count');
+        const multi = imgs.length > 1;
+        box.classList.toggle('single', !multi);
+        let idx = 0;
+        let opener = null;
+
+        const srcOf = (img) => img.currentSrc || img.src;
+        const preload = (i) => { new Image().src = srcOf(imgs[(i + imgs.length) % imgs.length]); };
+        const show = (i) => {
+            idx = (i + imgs.length) % imgs.length;
+            const img = imgs[idx];
+            view.src = srcOf(img);
+            view.alt = img.alt;
+            const fc = img.closest('figure')?.querySelector('figcaption');
+            cap.textContent = fc ? fc.textContent.trim() : '';
+            count.textContent = multi ? `${idx + 1} / ${imgs.length}` : '';
+            if (multi) { preload(idx + 1); preload(idx - 1); }
+        };
+        const isOpen = () => box.classList.contains('open');
+        const open = (i) => {
+            opener = document.activeElement;
+            show(i);
             box.classList.add('open');
-        }));
+            box.querySelector('.ride-lightbox-close').focus({ preventScroll: true });
+        };
+        const close = () => {
+            if (!isOpen()) return;
+            box.classList.remove('open');
+            // Leave the page on the last photo viewed
+            const target = imgs[idx].closest('figure') || imgs[idx];
+            const r = target.getBoundingClientRect();
+            if (r.bottom < 0 || r.top > window.innerHeight) {
+                const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                target.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+            }
+            if (opener && opener.focus) opener.focus({ preventScroll: true });
+        };
+
+        box.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (btn?.classList.contains('prev')) show(idx - 1);
+            else if (btn?.classList.contains('next')) show(idx + 1);
+            else close();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (!isOpen()) return;
+            if (e.key === 'Escape') close();
+            else if (e.key === 'ArrowRight' && multi) { e.preventDefault(); show(idx + 1); }
+            else if (e.key === 'ArrowLeft' && multi) { e.preventDefault(); show(idx - 1); }
+        });
+
+        // Horizontal swipe steps; mostly vertical drags are ignored
+        let sx = null, sy = 0, swipedAt = 0;
+        box.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) { sx = null; return; }
+            sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+        }, { passive: true });
+        box.addEventListener('touchend', (e) => {
+            if (sx === null || !multi) return;
+            const dx = e.changedTouches[0].clientX - sx;
+            const dy = e.changedTouches[0].clientY - sy;
+            sx = null;
+            if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                show(idx + (dx < 0 ? 1 : -1));
+                swipedAt = Date.now();
+            }
+        }, { passive: true });
+        // A swipe shouldn't also count as a tap that closes
+        box.addEventListener('click', (e) => {
+            if (Date.now() - swipedAt < 400) e.stopImmediatePropagation();
+        }, true);
+
+        imgs.forEach((img, i) => img.addEventListener('click', () => open(i)));
     }
 
     function fail(el, err) {
         console.error('ride-map:', err);
         el.classList.add('ride-map-error');
-        el.textContent = "Couldn't load the route map.";
+        el.textContent = el.dataset.gpx ? "Couldn't load the route map." : "Couldn't load the map.";
     }
 
     function init() {
         document.querySelectorAll('.ride-map[data-gpx]').forEach(el => renderRide(el).catch(e => fail(el, e)));
         document.querySelectorAll('.ride-map[data-overview]').forEach(el => renderOverview(el).catch(e => fail(el, e)));
+        document.querySelectorAll('.ride-map[data-area-lat]').forEach(el => renderArea(el).catch(e => fail(el, e)));
+        document.querySelectorAll('.ride-map[data-urbex-overview]').forEach(el => renderUrbexOverview(el).catch(e => fail(el, e)));
         setupGallery();
         setupVideos();
         setupTweets();
