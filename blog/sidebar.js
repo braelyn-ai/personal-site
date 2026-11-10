@@ -1,11 +1,11 @@
 // Dynamically generates the sidebar bio (top-left) + similar posts (bottom-left)
 (function () {
-    const match = window.location.pathname.match(/\/(posts|rides)\/([^/]+?)(\.html)?$/);
+    const match = window.location.pathname.match(/\/(posts|rides|urbex)\/([^/]+?)(\.html)?$/);
     if (!match) return;
-    const isRide = match[1] === 'rides';
+    const section = match[1];
     const slug = match[2];
 
-    fetch(isRide ? '../rides.json' : '../posts.json')
+    fetch(section === 'posts' ? '../posts.json' : `../${section}.json`)
         .then(r => r.json())
         .then(posts => {
             const current = posts.find(p => p.slug === slug);
@@ -73,7 +73,9 @@
                 sidebar.className = 'post-sidebar';
 
                 const heading = document.createElement('h4');
-                heading.textContent = isRide ? 'More Rides' : hasSimilar ? 'Similar Posts' : 'Recent Posts';
+                heading.textContent = section === 'rides' ? 'More Rides'
+                    : section === 'urbex' ? 'More Spots'
+                    : hasSimilar ? 'Similar Posts' : 'Recent Posts';
                 sidebar.appendChild(heading);
 
                 const list = document.createElement('ul');

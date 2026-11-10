@@ -153,6 +153,47 @@ Map tiles: OpenStreetMap, OpenTopoMap and Esri (no API keys).
 - `bike` (string, optional)
 - `tags` (array, optional)
 
+## Adding an Urban Exploration Post
+
+Urbex posts are about abandoned places. They live in `urbex/`, are listed in
+`urbex.json`, and show up on the homepage, at `/urbex/` (with a map of every
+spot), and in the RSS feed. Same photo/video handling and gallery as rides, but
+**no exact locations, ever**: no GPX, no route, no photo pins.
+
+```bash
+# Create a post, then open urbex/<slug>.html and write the story
+uv run new_urbex.py new \
+  --title "Soviet barracks in Wittstock" \
+  --area "Wittstock, Brandenburg, Germany" \
+  --near 53.16,12.48 \
+  --photos ~/Desktop/wittstock \
+  --description "Lenin murals, collapsed floors and one very confused deer." \
+  --tags "Germany, Brandenburg, Soviet"
+
+# Later: add photos, pick the cover, or change the area (your story is left alone)
+uv run new_urbex.py update soviet-barracks-in-wittstock --photos ~/Desktop/more
+uv run new_urbex.py update soviet-barracks-in-wittstock --cover 04.jpg
+uv run new_urbex.py update soviet-barracks-in-wittstock --near 53.17,12.49 --area "Near Wittstock, Germany"
+```
+
+- `--area` is the text under the title. Keep it town-level.
+- `--near` should be the nearest **town**, not the spot. It's rounded to 2
+  decimals (~1 km) and the page shows a ~3 km circle around it, never a pin.
+  The urbex maps also stop zooming in at a regional level. Leave `--near` out
+  and the post has no map (and no pin on the overview).
+- Photos are re-encoded with all EXIF/GPS stripped; GPS in them is ignored.
+  Videos are transcoded like rides (1080p, HDR→SDR, metadata stripped, poster).
+- `--date` defaults to the first photo's date.
+- Watch for location giveaways in the photos themselves (street signs, unique
+  landmarks in the background) and in what you write.
+
+### urbex.json Format
+
+- `title`, `slug`, `date`, `description`, `tags`: same as rides
+- `area` (string, optional): e.g. "Wittstock, Brandenburg, Germany"
+- `lat`, `lon` (numbers, optional): town-level, 2 decimals
+- `cover` (string, optional): hero photo and thumbnail, relative to the blog root
+
 ## posts.json Format
 
 Each post object in the JSON array has:

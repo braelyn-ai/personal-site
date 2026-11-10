@@ -15,5 +15,60 @@
         ],
         "bike": "2025 Kawasaki ZX-6R",
         "cover": "assets/rides/japan-izu-fuji-venus-line/07.jpg"
+    },
+    {
+        "title": "Riding through the UAE",
+        "slug": "riding-through-the-uae",
+        "date": "2026-02-21",
+        "description": "Dune bashing until 5am, a few hours of sleep, then twelve hours on a Himalayan 450 through the gravel roads and wadis of the Hajar mountains.",
+        "distanceMi": 82.6,
+        "gpx": "assets/rides/riding-through-the-uae/route.gpx",
+        "tags": [
+            "motorcycle",
+            "ride",
+            "UAE",
+            "Dubai",
+            "Hajar mountains",
+            "dunes",
+            "adventure"
+        ],
+        "cover": "assets/rides/riding-through-the-uae/03.jpg",
+        "bike": "Royal Enfield Himalayan 450"
+    },
+    {
+        "title": "Baja on KLRs",
+        "slug": "baja-on-klrs",
+        "date": "2026-01-01",
+        "description": "Four days and about 580 miles around Baja California Sur with Ellie: the East Cape dirt road, the coast north of La Paz to San Evaristo, and over the Sierra de la Giganta.",
+        "distanceMi": 578.9,
+        "gpx": "assets/rides/baja-on-klrs/route.gpx",
+        "tags": [
+            "Baja",
+            "Mexico",
+            "La Paz",
+            "San Evaristo",
+            "East Cape",
+            "adventure"
+        ],
+        "cover": "assets/rides/baja-on-klrs/10.jpg",
+        "bike": "Kawasaki KLR 650"
+    },
+    {
+        "title": "Maharashtra and Goa on Scram 411s",
+        "slug": "maharashtra-and-goa",
+        "date": "2024-12-11",
+        "description": "Six days with Natalia on Scram 411s: Mumbai over Varandha Ghat to Mahabaleshwar, Pratapgad, Panhala, down to Goa, and back up the Konkan coast.",
+        "distanceMi": 865.0,
+        "gpx": "assets/rides/maharashtra-and-goa/route.gpx",
+        "tags": [
+            "India",
+            "Maharashtra",
+            "Goa",
+            "Konkan",
+            "Mahabaleshwar",
+            "ghats"
+        ],
+        "cover": "assets/rides/maharashtra-and-goa/19.jpg",
+        "bike": "Royal Enfield Scram 411"
     }
 ]

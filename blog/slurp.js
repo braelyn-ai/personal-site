@@ -10,11 +10,12 @@ function slurp(eventType, eventData) {
 
 // Track page view with the slug derived from the URL
 (function () {
-    const m = window.location.pathname.match(/\/(posts|rides)\/([^/]*?)(\.html)?$/);
+    const m = window.location.pathname.match(/\/(posts|rides|urbex)\/([^/]*?)(\.html)?$/);
     if (!m) return;
     const [, section, slug] = m;
     if (section === 'posts' && slug) slurp('blog_post_read', slug);
     else if (section === 'rides') slurp(slug && slug !== 'index' ? 'blog_ride_read' : 'blog_rides_view', slug || undefined);
+    else if (section === 'urbex') slurp(slug && slug !== 'index' ? 'blog_urbex_read' : 'blog_urbex_view', slug || undefined);
 })();
 
 // Track referrer

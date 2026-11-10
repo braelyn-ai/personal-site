@@ -5,7 +5,7 @@
     <link>https://blog.braelyn.ai</link>
     <description>Braelyn Boynton on AI and codegen, startups, creative coding, and motorcycle trips around the world.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 07 Nov 2026 00:32:19 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 10 Nov 2026 23:03:35 +0000</lastBuildDate>
     <atom:link href="https://blog.braelyn.ai/feed.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Tokyo to Izu, Fuji and the Venus Line</title>
@@ -18,6 +18,26 @@
       <category>Mt Fuji</category>
       <category>Venus Line</category>
       <category>Shiga Kogen</category>
+    </item>
+    <item>
+      <title>Wittstock</title>
+      <link>https://blog.braelyn.ai/urbex/wittstock.html</link>
+      <description>Soviet-era halls, a gym, a theater and a Lenin statue with something to say, on a lake in northern Brandenburg.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/wittstock.html</guid>
+      <pubDate>Wed, 24 Jun 2026 00:00:00 +0000</pubDate>
+      <category>Brandenburg</category>
+      <category>Germany</category>
+      <category>Soviet</category>
+    </item>
+    <item>
+      <title>Fürstenberg</title>
+      <link>https://blog.braelyn.ai/urbex/fuerstenberg.html</link>
+      <description>A giant 1912 flour mill on the edge of a lake, rotting floor by floor. Best sunset of the trip.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/fuerstenberg.html</guid>
+      <pubDate>Wed, 24 Jun 2026 00:00:00 +0000</pubDate>
+      <category>Brandenburg</category>
+      <category>Germany</category>
+      <category>mill</category>
     </item>
     <item>
       <title>Stop Dooming: Codegen will have its Gang of Four moment</title>
@@ -51,6 +71,33 @@
       <category>Identity</category>
     </item>
     <item>
+      <title>Riding through the UAE</title>
+      <link>https://blog.braelyn.ai/rides/riding-through-the-uae.html</link>
+      <description>Dune bashing until 5am, a few hours of sleep, then twelve hours on a Himalayan 450 through the gravel roads and wadis of the Hajar mountains.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/rides/riding-through-the-uae.html</guid>
+      <pubDate>Sat, 21 Feb 2026 00:00:00 +0000</pubDate>
+      <category>motorcycle</category>
+      <category>ride</category>
+      <category>UAE</category>
+      <category>Dubai</category>
+      <category>Hajar mountains</category>
+      <category>dunes</category>
+      <category>adventure</category>
+    </item>
+    <item>
+      <title>Baja on KLRs</title>
+      <link>https://blog.braelyn.ai/rides/baja-on-klrs.html</link>
+      <description>Four days and about 580 miles around Baja California Sur with Ellie: the East Cape dirt road, the coast north of La Paz to San Evaristo, and over the Sierra de la Giganta.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/rides/baja-on-klrs.html</guid>
+      <pubDate>Thu, 01 Jan 2026 00:00:00 +0000</pubDate>
+      <category>Baja</category>
+      <category>Mexico</category>
+      <category>La Paz</category>
+      <category>San Evaristo</category>
+      <category>East Cape</category>
+      <category>adventure</category>
+    </item>
+    <item>
       <title>The Making of Braelyn.ai</title>
       <link>https://blog.braelyn.ai/posts/the-making-of-braelyn-ai.html</link>
       <description>How a crisis of identity, a trip to Berlin, and the discovery of Berghain inspired the design of braelyn.ai.</description>
@@ -59,6 +106,132 @@
       <category>Berlin</category>
       <category>Identity</category>
       <category>Creative Coding</category>
+    </item>
+    <item>
+      <title>Pacific Steel Casting</title>
+      <link>https://blog.braelyn.ai/urbex/pacific-steel.html</link>
+      <description>An 85-year-old steel foundry right next to I-80, empty since 2019.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/pacific-steel.html</guid>
+      <pubDate>Sun, 07 Dec 2025 00:00:00 +0000</pubDate>
+      <category>Berkeley</category>
+      <category>California</category>
+      <category>factory</category>
+    </item>
+    <item>
+      <title>Ferry Point</title>
+      <link>https://blog.braelyn.ai/urbex/ferry-point.html</link>
+      <description>The end of the Santa Fe Railway, where trains used to roll onto ferries. Now it's graffiti and a rusty gantry over the bay.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/ferry-point.html</guid>
+      <pubDate>Sun, 07 Dec 2025 00:00:00 +0000</pubDate>
+      <category>Richmond</category>
+      <category>California</category>
+      <category>railroad</category>
+      <category>graffiti</category>
+    </item>
+    <item>
+      <title>Point Molate</title>
+      <link>https://blog.braelyn.ai/urbex/point-molate.html</link>
+      <description>Derelict Navy cottages at what used to be the world's largest winery.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/point-molate.html</guid>
+      <pubDate>Sun, 07 Dec 2025 00:00:00 +0000</pubDate>
+      <category>Richmond</category>
+      <category>California</category>
+      <category>Navy</category>
+    </item>
+    <item>
+      <title>Teufelsberg</title>
+      <link>https://blog.braelyn.ai/urbex/teufelsberg.html</link>
+      <description>A Cold War spy station on a hill made of Berlin's WWII rubble, now an open-air graffiti gallery.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/teufelsberg.html</guid>
+      <pubDate>Mon, 18 Aug 2025 00:00:00 +0000</pubDate>
+      <category>Berlin</category>
+      <category>Germany</category>
+      <category>Cold War</category>
+    </item>
+    <item>
+      <title>Wünsdorf</title>
+      <link>https://blog.braelyn.ai/urbex/wunsdorf.html</link>
+      <description>The Soviet army's secret headquarters in East Germany, and a House of Officers with Lenin still standing out front.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/wunsdorf.html</guid>
+      <pubDate>Sat, 16 Aug 2025 00:00:00 +0000</pubDate>
+      <category>Brandenburg</category>
+      <category>Germany</category>
+      <category>Soviet</category>
+    </item>
+    <item>
+      <title>Jüterbog</title>
+      <link>https://blog.braelyn.ai/urbex/juterbog.html</link>
+      <description>A secret Luftwaffe technical school, later Soviet, gone to the forest, until security found us.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/juterbog.html</guid>
+      <pubDate>Sat, 16 Aug 2025 00:00:00 +0000</pubDate>
+      <category>Brandenburg</category>
+      <category>Germany</category>
+      <category>Soviet</category>
+      <category>air base</category>
+    </item>
+    <item>
+      <title>Spreepark</title>
+      <link>https://blog.braelyn.ai/urbex/spreepark.html</link>
+      <description>Berlin's abandoned amusement park, twice: thrown out in ten minutes the first time, back with a plan the second, just as it was being demolished.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/spreepark.html</guid>
+      <pubDate>Wed, 06 Aug 2025 00:00:00 +0000</pubDate>
+      <category>Berlin</category>
+      <category>Germany</category>
+      <category>amusement park</category>
+    </item>
+    <item>
+      <title>The Seismic Office, Treasure Island</title>
+      <link>https://blog.braelyn.ai/urbex/treasure-island-seismic-office.html</link>
+      <description>An abandoned seismic retrofitting office on a Navy island in the middle of the bay. Went twice, the second time just after a fire. Now it’s gone.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/treasure-island-seismic-office.html</guid>
+      <pubDate>Sun, 11 May 2025 00:00:00 +0000</pubDate>
+      <category>San Francisco</category>
+      <category>California</category>
+      <category>Navy</category>
+    </item>
+    <item>
+      <title>Maharashtra and Goa on Scram 411s</title>
+      <link>https://blog.braelyn.ai/rides/maharashtra-and-goa.html</link>
+      <description>Six days with Natalia on Scram 411s: Mumbai over Varandha Ghat to Mahabaleshwar, Pratapgad, Panhala, down to Goa, and back up the Konkan coast.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/rides/maharashtra-and-goa.html</guid>
+      <pubDate>Wed, 11 Dec 2024 00:00:00 +0000</pubDate>
+      <category>India</category>
+      <category>Maharashtra</category>
+      <category>Goa</category>
+      <category>Konkan</category>
+      <category>Mahabaleshwar</category>
+      <category>ghats</category>
+    </item>
+    <item>
+      <title>Rüdersdorf</title>
+      <link>https://blog.braelyn.ai/urbex/ruedersdorf.html</link>
+      <description>A 1940s 'super cement works' turned GDR phosphate plant, abandoned since 1999. I've done it twice.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/ruedersdorf.html</guid>
+      <pubDate>Thu, 29 Aug 2024 00:00:00 +0000</pubDate>
+      <category>Brandenburg</category>
+      <category>Germany</category>
+      <category>factory</category>
+    </item>
+    <item>
+      <title>Nazi bunkers in the Calanques</title>
+      <link>https://blog.braelyn.ai/urbex/calanques-bunkers.html</link>
+      <description>German WWII bunkers and old French forts on the rocky tip of the Calanques, covered in graffiti and staring out at the Mediterranean.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/calanques-bunkers.html</guid>
+      <pubDate>Fri, 07 Oct 2022 00:00:00 +0000</pubDate>
+      <category>Marseille</category>
+      <category>France</category>
+      <category>WWII</category>
+      <category>bunkers</category>
+    </item>
+    <item>
+      <title>Indiana Women's Prison</title>
+      <link>https://blog.braelyn.ai/urbex/indiana-womens-prison.html</link>
+      <description>America's first separate prison for women, opened in 1873 and empty since 2017. Had to peep it before it was all demolished.</description>
+      <guid isPermaLink="true">https://blog.braelyn.ai/urbex/indiana-womens-prison.html</guid>
+      <pubDate>Wed, 29 Jun 2022 00:00:00 +0000</pubDate>
+      <category>Indianapolis</category>
+      <category>Indiana</category>
+      <category>prison</category>
     </item>
     <item>
       <title>Lessons I've Learned As a Young, Startup Founder</title>

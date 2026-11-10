@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Build the generated parts of the blog from posts.json and rides.json:
+"""Build the generated parts of the blog from posts.json, rides.json and urbex.json:
 
 - feed.xml     RSS feed
 - sitemap.xml  for search engines (robots.txt points at it)
-- the post and ride lists inside index.html and rides/index.html, written as
+- the post, ride and urbex lists inside index.html, rides/index.html and
+  urbex/index.html, written as
   plain HTML between <!-- posts:start --> / <!-- posts:end --> style markers so
   crawlers and link previews see them without running JavaScript
 
-Run it after editing posts.json (new_ride.py runs it for rides).
+Run it after editing posts.json (new_ride.py and new_urbex.py run it for you).
 """
 
 import html
@@ -25,16 +26,20 @@ DESCRIPTION = (
 )
 
 
+def load_section(name):
+    path = ROOT / f"{name}.json"
+    if not path.exists():
+        return []
+    with open(path) as f:
+        entries = [{**e, "section": name} for e in json.load(f)]
+    entries.sort(key=lambda e: e["date"], reverse=True)
+    return entries
+
+
 def load_entries():
     with open(ROOT / "posts.json") as f:
         posts = [{**p, "section": "posts"} for p in json.load(f)]
-    rides = []
-    rides_path = ROOT / "rides.json"
-    if rides_path.exists():
-        with open(rides_path) as f:
-            rides = [{**r, "section": "rides"} for r in json.load(f)]
-    rides.sort(key=lambda r: r["date"], reverse=True)
-    return posts, rides
+    return posts, load_section("rides"), load_section("urbex")
 
 
 def url_for(entry):
@@ -75,7 +80,8 @@ def generate_feed(entries):
             "%a, %d %b %Y %H:%M:%S +0000"
         )
 
-        tags = post.get("tags") or (["Rides"] if post["section"] == "rides" else [])
+        default_tags = {"rides": ["Rides"], "urbex": ["Urban Exploration"]}
+        tags = post.get("tags") or default_tags.get(post["section"], [])
         for tag in tags:
             ET.SubElement(item, "category").text = tag
 
@@ -94,7 +100,7 @@ def modified_date(entry):
     return entry["date"]
 
 
-def generate_sitemap(posts, rides):
+def generate_sitemap(posts, rides, urbex):
     ns = "http://www.sitemaps.org/schemas/sitemap/0.9"
     urlset = ET.Element("urlset", xmlns=ns)
 
@@ -103,11 +109,13 @@ def generate_sitemap(posts, rides):
         ET.SubElement(url, "loc").text = loc
         ET.SubElement(url, "lastmod").text = lastmod
 
-    dated = [(e, modified_date(e)) for e in posts + rides]
+    dated = [(e, modified_date(e)) for e in posts + rides + urbex]
     latest = max((d for _, d in dated), default=None)
     add(f"{BLOG_URL}/", latest)
     if rides:
         add(f"{BLOG_URL}/rides/", max(modified_date(r) for r in rides))
+    if urbex:
+        add(f"{BLOG_URL}/urbex/", max(modified_date(u) for u in urbex))
     for entry, lastmod in sorted(dated, key=lambda x: x[0]["date"], reverse=True):
         add(url_for(entry), lastmod)
 
@@ -162,6 +170,77 @@ def ride_html(ride, base, indent):
     return "\n".join(lines)
 
 
+def urbex_html(spot, base, indent):
+    e = lambda s: html.escape(s, quote=True)
+    pad = " " * indent
+    lines = [f'{pad}<a class="ride-item urbex-item" href="{base}urbex/{e(spot["slug"])}.html" data-slug="{e(spot["slug"])}">']
+    if spot.get("cover"):
+        lines.append(f'{pad}    <img class="ride-thumb" src="{base}{e(spot["cover"])}" alt="" loading="lazy">')
+    lines.append(f'{pad}    <div>')
+    lines.append(f'{pad}        <span class="post-title">{e(spot["title"])}</span>')
+    if spot.get("description"):
+        lines.append(f'{pad}        <span class="post-desc">{e(spot["description"])}</span>')
+    meta = f'<time datetime="{spot["date"]}">{pretty_date(spot["date"])}</time>'
+    if spot.get("area"):
+        meta += f' · {e(spot["area"])}'
+    lines.append(f'{pad}        <span class="post-meta">{meta}</span>')
+    lines.append(f'{pad}    </div>')
+    lines.append(f'{pad}</a>')
+    return "\n".join(lines)
+
+
+def ride_tile(ride, base, indent):
+    """A cover-photo tile for the homepage rides row."""
+    e = lambda s: html.escape(s, quote=True)
+    pad = " " * indent
+    meta = pretty_date(ride["date"])
+    if ride.get("distanceMi"):
+        meta += f" · {int(ride['distanceMi'] + 0.5)} mi"
+    lines = [f'{pad}<a class="urbex-tile ride-tile" href="{base}rides/{e(ride["slug"])}.html" data-slug="{e(ride["slug"])}">']
+    if ride.get("cover"):
+        lines.append(f'{pad}    <img src="{base}{e(ride["cover"])}" alt="" loading="lazy">')
+    lines.append(f'{pad}    <span class="urbex-tile-text"><span class="urbex-tile-title">{e(ride["title"])}</span>'
+                 f'<span class="urbex-tile-meta">{meta}</span></span>')
+    lines.append(f'{pad}</a>')
+    return "\n".join(lines)
+
+
+def urbex_tile(spot, base, indent):
+    """A cover-photo tile for the homepage gallery."""
+    e = lambda s: html.escape(s, quote=True)
+    pad = " " * indent
+    lines = [f'{pad}<a class="urbex-tile" href="{base}urbex/{e(spot["slug"])}.html" data-slug="{e(spot["slug"])}">']
+    if spot.get("cover"):
+        lines.append(f'{pad}    <img src="{base}{e(spot["cover"])}" alt="" loading="lazy">')
+    for flag in BADGES:
+        if spot.get(flag):
+            lines.append(f'{pad}    <span class="urbex-badge urbex-{flag}">{flag}</span>')
+    lines.append(f'{pad}    <span class="urbex-tile-text"><span class="urbex-tile-title">{e(spot["title"])}</span>'
+                 f'<span class="urbex-tile-meta">{pretty_date(spot["date"])}</span></span>')
+    lines.append(f'{pad}</a>')
+    return "\n".join(lines)
+
+
+def by_region(urbex):
+    """[(region, spots)] with the region of the newest spot first."""
+    groups = {}
+    for u in urbex:  # already newest first
+        groups.setdefault(u.get("region") or u.get("area", "").split(",")[-1].strip() or "Elsewhere", []).append(u)
+    return list(groups.items())
+
+
+def urbex_grouped(urbex, render, base, indent, wrap_cls):
+    e = lambda s: html.escape(s, quote=True)
+    pad = " " * indent
+    out = []
+    for region, spots in by_region(urbex):
+        out.append(f'{pad}<h3 class="urbex-region">{e(region)}</h3>')
+        out.append(f'{pad}<div class="{wrap_cls}">')
+        out += [render(u, base, indent + 4) for u in spots]
+        out.append(f'{pad}</div>')
+    return "\n".join(out)
+
+
 def fill(text, name, body):
     """Replace what's between <!-- name:start --> and <!-- name:end -->."""
     pattern = re.compile(rf"(<!-- {name}:start -->)(.*?)([ \t]*<!-- {name}:end -->)", re.S)
@@ -170,14 +249,35 @@ def fill(text, name, body):
     return pattern.sub(lambda m: f"{m.group(1)}\n{body}\n{m.group(3)}", text, count=1)
 
 
-def render_lists(posts, rides):
+BADGES = ("demolished", "commercialized")
+
+
+def sync_urbex_badges(urbex):
+    """Labels next to the date on posts flagged e.g. "demolished": true or "commercialized": true."""
+    for spot in urbex:
+        page = ROOT / "urbex" / f"{spot['slug']}.html"
+        if not page.exists():
+            continue
+        text = page.read_text()
+        new = re.sub(r' <span class="urbex-(?:badge urbex-)?(?:demolished|commercialized)">[^<]*</span>', "", text)
+        tags = "".join(f' <span class="urbex-badge urbex-{f}">{f}</span>' for f in BADGES if spot.get(f))
+        if tags:
+            new = re.sub(r'(<p class="ride-meta"><time[^>]*>[^<]*</time>)', lambda m: m.group(1) + tags, new, count=1)
+        if new != text:
+            page.write_text(new)
+
+
+def render_lists(posts, rides, urbex):
     index = ROOT / "index.html"
     text = index.read_text()
     text = fill(text, "posts", "\n".join(post_html(p, 12) for p in posts))
-    text = fill(text, "rides", "\n".join(ride_html(r, "", 12) for r in rides[:3]))
+    text = fill(text, "rides", '            <div class="urbex-grid">\n' + "\n".join(ride_tile(r, "", 16) for r in rides[:3]) + "\n            </div>")
     # The homepage rides section only shows once there's a ride
     text = re.sub(r'<section id="rides-section"( hidden)?>',
                   '<section id="rides-section">' if rides else '<section id="rides-section" hidden>', text)
+    text = fill(text, "urbex", '            <div class="urbex-grid">\n' + "\n".join(urbex_tile(u, "", 16) for u in urbex[:6]) + "\n            </div>")
+    text = re.sub(r'<section id="urbex-section"( hidden)?>',
+                  '<section id="urbex-section">' if urbex else '<section id="urbex-section" hidden>', text)
     index.write_text(text)
 
     rides_index = ROOT / "rides" / "index.html"
@@ -186,11 +286,18 @@ def render_lists(posts, rides):
         "            <p>No rides posted yet. The bike is probably in the shop.</p>"
     rides_index.write_text(fill(text, "rides", body))
 
+    urbex_index = ROOT / "urbex" / "index.html"
+    text = urbex_index.read_text()
+    body = urbex_grouped(urbex, urbex_tile, "../", 12, "urbex-grid") or \
+        "            <p>Nothing posted yet. Still looking for a way in.</p>"
+    urbex_index.write_text(fill(text, "urbex", body))
+
 
 if __name__ == "__main__":
-    posts, rides = load_entries()
-    everything = sorted(posts + rides, key=lambda p: p["date"], reverse=True)
+    posts, rides, urbex = load_entries()
+    everything = sorted(posts + rides + urbex, key=lambda p: p["date"], reverse=True)
     generate_feed(everything)
-    generate_sitemap(posts, rides)
-    render_lists(posts, rides)
-    print("Generated feed.xml, sitemap.xml and the lists in index.html + rides/index.html")
+    generate_sitemap(posts, rides, urbex)
+    render_lists(posts, rides, urbex)
+    sync_urbex_badges(urbex)
+    print("Generated feed.xml, sitemap.xml and the lists in index.html, rides/index.html + urbex/index.html")
