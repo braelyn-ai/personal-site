@@ -508,55 +508,82 @@
         });
     }
 
-    // Click a photo to open it; arrows, buttons or swipes step through every
-    // photo on the page (hero first), wrapping at the ends.
+    // Click a photo or video to open it; arrows, buttons or swipes step through
+    // everything in page order (hero first), wrapping at the ends. Videos play
+    // as soon as they're shown and stop when you move on.
     function setupLightbox() {
-        const imgs = [...document.querySelectorAll('.ride-hero img, .ride-gallery figure:not(.ride-clip) img')];
-        if (!imgs.length) return;
+        const items = [...document.querySelectorAll('.ride-hero img, .ride-gallery figure img, .ride-gallery figure video')];
+        if (!items.length) return;
+        const isVid = (el) => el.tagName === 'VIDEO';
         const box = document.createElement('div');
         box.className = 'ride-lightbox';
         box.setAttribute('role', 'dialog');
         box.setAttribute('aria-modal', 'true');
         box.setAttribute('aria-label', 'Photo viewer');
         box.innerHTML =
-            '<img alt=""><p class="ride-lightbox-cap"></p>' +
+            '<img alt=""><video controls playsinline preload="auto"></video><p class="ride-lightbox-cap"></p>' +
             '<span class="ride-lightbox-count" aria-live="polite"></span>' +
-            '<button type="button" class="ride-lightbox-nav prev" aria-label="Previous photo">&#8249;</button>' +
-            '<button type="button" class="ride-lightbox-nav next" aria-label="Next photo">&#8250;</button>' +
+            '<button type="button" class="ride-lightbox-nav prev" aria-label="Previous">&#8249;</button>' +
+            '<button type="button" class="ride-lightbox-nav next" aria-label="Next">&#8250;</button>' +
             '<button type="button" class="ride-lightbox-close" aria-label="Close">&times;</button>';
         document.body.appendChild(box);
         const view = box.querySelector('img');
+        const player = box.querySelector('video');
         const cap = box.querySelector('.ride-lightbox-cap');
         const count = box.querySelector('.ride-lightbox-count');
-        const multi = imgs.length > 1;
+        const multi = items.length > 1;
         box.classList.toggle('single', !multi);
         let idx = 0;
         let opener = null;
 
-        const srcOf = (img) => img.currentSrc || img.src;
-        const preload = (i) => { new Image().src = srcOf(imgs[(i + imgs.length) % imgs.length]); };
+        const srcOf = (el) => el.currentSrc || el.src;
+        const preload = (i) => {
+            const el = items[(i + items.length) % items.length];
+            new Image().src = isVid(el) ? el.poster : srcOf(el);
+        };
+        const stop = () => {
+            player.pause();
+            player.removeAttribute('src');
+            player.load();
+        };
         const show = (i) => {
-            idx = (i + imgs.length) % imgs.length;
-            const img = imgs[idx];
-            view.src = srcOf(img);
-            view.alt = img.alt;
-            const fc = img.closest('figure')?.querySelector('figcaption');
+            idx = (i + items.length) % items.length;
+            const el = items[idx];
+            if (isVid(el)) {
+                el.pause();
+                view.hidden = true;
+                view.removeAttribute('src');
+                player.hidden = false;
+                player.poster = el.poster;
+                player.src = srcOf(el);
+                // Sound on when the browser allows it, muted otherwise
+                player.muted = false;
+                player.play().catch(() => { player.muted = true; player.play().catch(() => {}); });
+            } else {
+                stop();
+                player.hidden = true;
+                view.hidden = false;
+                view.src = srcOf(el);
+                view.alt = el.alt;
+            }
+            const fc = el.closest('figure')?.querySelector('figcaption');
             cap.textContent = fc ? fc.textContent.trim() : '';
-            count.textContent = multi ? `${idx + 1} / ${imgs.length}` : '';
+            count.textContent = multi ? `${idx + 1} / ${items.length}` : '';
             if (multi) { preload(idx + 1); preload(idx - 1); }
         };
         const isOpen = () => box.classList.contains('open');
         const open = (i) => {
             opener = document.activeElement;
-            show(i);
             box.classList.add('open');
+            show(i);
             box.querySelector('.ride-lightbox-close').focus({ preventScroll: true });
         };
         const close = () => {
             if (!isOpen()) return;
+            stop();
             box.classList.remove('open');
-            // Leave the page on the last photo viewed
-            const target = imgs[idx].closest('figure') || imgs[idx];
+            // Leave the page on the last thing viewed
+            const target = items[idx].closest('figure') || items[idx];
             const r = target.getBoundingClientRect();
             if (r.bottom < 0 || r.top > window.innerHeight) {
                 const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -566,6 +593,7 @@
         };
 
         box.addEventListener('click', (e) => {
+            if (e.target === player) return; // clicks on the video are for its controls
             const btn = e.target.closest('button');
             if (btn?.classList.contains('prev')) show(idx - 1);
             else if (btn?.classList.contains('next')) show(idx + 1);
@@ -576,6 +604,10 @@
             if (e.key === 'Escape') close();
             else if (e.key === 'ArrowRight' && multi) { e.preventDefault(); show(idx + 1); }
             else if (e.key === 'ArrowLeft' && multi) { e.preventDefault(); show(idx - 1); }
+            else if (e.key === ' ' && !player.hidden) {
+                e.preventDefault();
+                if (player.paused) player.play(); else player.pause();
+            }
         });
 
         // Horizontal swipe steps; mostly vertical drags are ignored
@@ -599,7 +631,16 @@
             if (Date.now() - swipedAt < 400) e.stopImmediatePropagation();
         }, true);
 
-        imgs.forEach((img, i) => img.addEventListener('click', () => open(i)));
+        items.forEach((el, i) => {
+            if (isVid(el)) {
+                // On the page a video is a poster with a play badge; it plays in the viewer
+                el.removeAttribute('controls');
+                el.closest('figure')?.classList.add('ride-clip-thumb');
+                el.addEventListener('click', (e) => { e.preventDefault(); open(i); });
+            } else {
+                el.addEventListener('click', () => open(i));
+            }
+        });
     }
 
     function fail(el, err) {

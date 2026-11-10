@@ -681,6 +681,33 @@ hr {
     max-width: calc(var(--ar, 0.5625) * 560px);
 }
 
+/* Videos open in the viewer: show the poster with a play badge */
+.ride-gallery figure.ride-clip-thumb {
+    position: relative;
+}
+
+.ride-gallery figure.ride-clip-thumb video {
+    cursor: zoom-in;
+}
+
+.ride-gallery figure.ride-clip-thumb::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 56px;
+    height: 56px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M8 5v14l11-7z'/%3E%3C/svg%3E") center / 28px no-repeat;
+    pointer-events: none;
+    transition: background-color 0.2s;
+}
+
+.ride-gallery figure.ride-clip-thumb:hover::after {
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
 .ride-gallery figure.wide {
     flex-basis: 100%;
     max-width: none;
@@ -751,10 +778,20 @@ hr {
     display: flex;
 }
 
-.ride-lightbox img {
+.ride-lightbox img,
+.ride-lightbox video {
     max-width: 100%;
     max-height: calc(100vh - 6rem);
     margin: 0;
+}
+
+.ride-lightbox video {
+    cursor: auto;
+    background: #000;
+}
+
+.ride-lightbox [hidden] {
+    display: none;
 }
 
 .ride-lightbox p {
