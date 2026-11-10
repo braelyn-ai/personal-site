@@ -566,3 +566,42 @@ body {
     display: none;
   }
 }
+
+/* Traffic section */
+.traffic-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.traffic-header .section-title {
+  margin: 0;
+}
+
+.refresh-btn.active {
+  outline: 2px solid currentColor;
+}
+
+.all-events-title {
+  margin-top: 3rem;
+}
+
+.token-form {
+  max-width: 420px;
+  margin: 4rem auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.token-form input {
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  background: transparent;
+  color: inherit;
+}

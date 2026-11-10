@@ -2,9 +2,13 @@ import asyncio
 import json
 import logging
 import os
+import secrets
+import threading
+from datetime import datetime, timedelta
+from urllib.parse import urlparse
 from contextlib import asynccontextmanager
 from typing import Optional
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -14,6 +18,8 @@ from botocore.config import Config
 from session_manager import session_manager
 from database import SessionLocal
 from models import Event
+import geo
+import ua as ua_parser
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +36,67 @@ class EndSessionRequest(BaseModel):
 class SlurpEventRequest(BaseModel):
     event_type: str
     event_data: Optional[str] = None
+    # Optional page-view context
+    path: Optional[str] = None
+    title: Optional[str] = None
+    referrer: Optional[str] = None
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    visitor_id: Optional[str] = None
+    session_id: Optional[str] = None
+    screen: Optional[str] = None
+    language: Optional[str] = None
+    timezone: Optional[str] = None
+    duration_s: Optional[int] = None
+    scroll_pct: Optional[int] = None
+
+
+# Our own sites: a referrer from one of these is internal navigation, not a source
+OWN_HOSTS = ("braelyn.ai",)
+
+
+# Friendly names for sites that send traffic under several hostnames
+SOURCE_NAMES = {
+    "t.co": "x", "x.com": "x", "twitter.com": "x", "instagram.com": "instagram",
+    "facebook.com": "facebook", "fb.com": "facebook", "linkedin.com": "linkedin", "lnkd.in": "linkedin",
+    "news.ycombinator.com": "hacker news", "reddit.com": "reddit", "youtube.com": "youtube",
+    "threads.net": "threads", "bsky.app": "bluesky", "tiktok.com": "tiktok", "bing.com": "bing",
+    "duckduckgo.com": "duckduckgo", "chatgpt.com": "chatgpt", "perplexity.ai": "perplexity",
+}
+
+
+def source_name(name: Optional[str]) -> Optional[str]:
+    """Normalize a hostname or utm_source so the same site always groups together."""
+    if not name:
+        return None
+    name = name.strip().lower().removeprefix("www.")
+    for prefix in ("l.", "lm.", "m.", "mobile.", "old.", "out."):
+        if name.startswith(prefix) and name[len(prefix):] in SOURCE_NAMES:
+            name = name[len(prefix):]
+    if name.startswith("google.") or ".google." in name:
+        return "google"
+    return SOURCE_NAMES.get(name, name)
+
+
+def referrer_host(referrer: Optional[str]) -> Optional[str]:
+    """Where an external visit came from (e.g. "google", "x", "example.com"), or None for direct/internal."""
+    if not referrer:
+        return None
+    host = (urlparse(referrer).hostname or "").lower().removeprefix("www.")
+    if not host or any(host == h or host.endswith("." + h) for h in OWN_HOSTS):
+        return None
+    return source_name(host)
+
+
+def require_admin(request: Request) -> None:
+    """Admin endpoints need `Authorization: Bearer $ADMIN_TOKEN`. Closed if the token isn't set."""
+    token = os.getenv("ADMIN_TOKEN")
+    if not token:
+        raise HTTPException(status_code=503, detail="ADMIN_TOKEN not configured")
+    given = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
+    if not secrets.compare_digest(given, token):
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 async def cleanup_task():
@@ -44,6 +111,8 @@ async def lifespan(app: FastAPI):
     """Manage application lifespan events."""
     # Startup: Start background cleanup task
     cleanup_job = asyncio.create_task(cleanup_task())
+    # Load the GeoIP database in the background so startup isn't blocked by the download
+    threading.Thread(target=geo.load, daemon=True).start()
     yield
     # Shutdown: Cancel cleanup task
     cleanup_job.cancel()
@@ -79,34 +148,55 @@ async def health_check():
 
 
 @app.post("/slurp")
-async def slurp_event(request: Request, event: SlurpEventRequest):
-    """Record an event from the frontend."""
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    # Get IP address from request headers (handle proxies)
+async def slurp_event(request: Request):
+    """Record an event from the frontend.
+
+    Accepts JSON with any content type, because navigator.sendBeacon (used when a
+    page closes) can only send text/plain without a CORS preflight.
+    """
+    try:
+        event = SlurpEventRequest.model_validate_json(await request.body())
+    except Exception:
+        raise HTTPException(status_code=422, detail="Invalid event")
+
+    # Client IP (first hop when behind a proxy)
     ip_address = request.headers.get("x-forwarded-for")
     if ip_address:
-        # Take the first IP if there are multiple (client IP)
         ip_address = ip_address.split(",")[0].strip()
     else:
         ip_address = request.client.host if request.client else None
-    
+
     user_agent = request.headers.get("user-agent")
-    
+    agent = ua_parser.parse(user_agent)
+    country, region, city = geo.lookup(ip_address)
+    clip = lambda v, n=500: v[:n] if isinstance(v, str) else v
+
     try:
         db = SessionLocal()
-        db_event = Event(
-            event_type=event.event_type,
-            event_data=event.event_data,
+        db.add(Event(
+            event_type=clip(event.event_type, 100),
+            event_data=clip(event.event_data),
             ip_address=ip_address,
-            user_agent=user_agent,
-        )
-        db.add(db_event)
+            user_agent=clip(user_agent),
+            path=clip(event.path),
+            title=clip(event.title, 300),
+            referrer=clip(event.referrer, 1000),
+            referrer_host=referrer_host(event.referrer),
+            utm_source=clip(source_name(event.utm_source), 100),
+            utm_medium=clip(event.utm_medium, 100),
+            utm_campaign=clip(event.utm_campaign, 100),
+            visitor_id=clip(event.visitor_id, 64),
+            session_id=clip(event.session_id, 64),
+            screen=clip(event.screen, 20),
+            language=clip(event.language, 20),
+            timezone=clip(event.timezone, 64),
+            duration_s=max(0, min(event.duration_s, 86400)) if event.duration_s is not None else None,
+            scroll_pct=max(0, min(event.scroll_pct, 100)) if event.scroll_pct is not None else None,
+            country=country, region=region, city=city,
+            device=agent["device"], browser=agent["browser"], os=agent["os"], is_bot=agent["is_bot"],
+        ))
         db.commit()
         db.close()
-        
-        logger.info(f"Event recorded: {event.event_type}")
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Failed to record event: {e}")
@@ -119,7 +209,7 @@ async def hello():
     return {"message": "Hello from the API!"}
 
 
-@app.get("/api/admin/stats")
+@app.get("/api/admin/stats", dependencies=[Depends(require_admin)])
 async def get_admin_stats():
     """Get statistics for the admin dashboard."""
     from sqlalchemy import func as sql_func
@@ -223,6 +313,76 @@ async def get_admin_stats():
     except Exception as e:
         logger.error(f"Failed to get admin stats: {e}")
         raise HTTPException(status_code=500, detail="Failed to get stats")
+
+
+@app.get("/api/admin/traffic", dependencies=[Depends(require_admin)])
+async def get_admin_traffic(days: int = 30):
+    """Page views: which pages, from where (sites, places, devices), over the last `days` days."""
+    from sqlalchemy import case, distinct, func as f
+
+    days = max(1, min(days, 365))
+    since = datetime.now() - timedelta(days=days)
+    db = SessionLocal()
+    try:
+        views = db.query(Event).filter(
+            Event.event_type == "pageview", Event.created_at >= since, Event.is_bot.isnot(True))
+        leaves = db.query(Event).filter(
+            Event.event_type == "page_leave", Event.created_at >= since, Event.is_bot.isnot(True))
+        source = f.coalesce(Event.utm_source, Event.referrer_host, "direct")
+
+        def top(col, n=20, q=views, label=None):
+            rows = q.with_entities(col.label("k"), f.count(Event.id), f.count(distinct(Event.visitor_id))) \
+                .group_by(col).order_by(f.count(Event.id).desc()).limit(n).all()
+            return [{"key": k or "Unknown", "views": v, "visitors": u} for k, v, u in rows]
+
+        # Time on page and scroll depth come from the page_leave event
+        engagement = {p: (round(s or 0), round(sc or 0)) for p, s, sc in leaves.with_entities(
+            Event.path, f.avg(Event.duration_s), f.avg(Event.scroll_pct)).group_by(Event.path).all()}
+        pages = top(Event.path, 50)
+        for p in pages:
+            p["avg_seconds"], p["avg_scroll"] = engagement.get(p["key"], (None, None))
+
+        place = f.coalesce(Event.city, "?") + ", " + f.coalesce(Event.region, "?") + ", " + f.coalesce(Event.country, "?")
+        pairs = views.with_entities(Event.path, source, f.count(Event.id)).group_by(Event.path, source) \
+            .order_by(f.count(Event.id).desc()).limit(50).all()
+        daily = views.with_entities(f.date(Event.created_at), f.count(Event.id), f.count(distinct(Event.visitor_id))) \
+            .group_by(f.date(Event.created_at)).order_by(f.date(Event.created_at)).all()
+        recent = views.order_by(Event.created_at.desc()).limit(50).all()
+        bots = db.query(f.count(Event.id)).filter(
+            Event.event_type == "pageview", Event.created_at >= since, Event.is_bot.is_(True)).scalar()
+
+        return {
+            "days": days,
+            "totals": {
+                "views": views.count(),
+                "visitors": views.with_entities(f.count(distinct(Event.visitor_id))).scalar(),
+                "sessions": views.with_entities(f.count(distinct(Event.session_id))).scalar(),
+                "avg_seconds": round(leaves.with_entities(f.avg(Event.duration_s)).scalar() or 0),
+                "bot_views_excluded": bots,
+            },
+            "daily": [{"date": str(d), "views": v, "visitors": u} for d, v, u in daily],
+            "pages": pages,
+            "sources": top(source),
+            "page_sources": [{"path": p, "source": s, "views": v} for p, s, v in pairs],
+            "campaigns": top(Event.utm_campaign, 20, views.filter(Event.utm_campaign.isnot(None))),
+            "countries": top(Event.country),
+            "places": top(place, 30, views.filter(Event.country.isnot(None))),
+            "devices": top(Event.device, 10),
+            "browsers": top(Event.browser, 10),
+            "os": top(Event.os, 10),
+            "recent": [{
+                "time": e.created_at.isoformat() if e.created_at else None,
+                "path": e.path, "title": e.title,
+                "source": e.utm_source or e.referrer_host or "direct",
+                "place": ", ".join(x for x in (e.city, e.country) if x) or None,
+                "device": e.device, "browser": e.browser, "visitor": (e.visitor_id or "")[:6],
+            } for e in recent],
+        }
+    except Exception as e:
+        logger.error(f"Failed to get traffic: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get traffic")
+    finally:
+        db.close()
 
 
 @app.get("/api/lastfm/now-playing")

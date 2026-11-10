@@ -1,4 +1,5 @@
 import './style.css'
+import { trackPageview } from './utils/trackEvent'
 import * as THREE from 'three'
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -210,3 +211,5 @@ window.addEventListener('orientationchange', () => setTimeout(handleResize, 300)
 
 handleResize()
 animate()
+
+trackPageview()
