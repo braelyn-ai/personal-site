@@ -95,7 +95,7 @@ def require_admin(request: Request) -> None:
     if not token:
         raise HTTPException(status_code=503, detail="ADMIN_TOKEN not configured")
     given = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
-    if not secrets.compare_digest(given, token):
+    if not secrets.compare_digest(given.encode(), token.encode()):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 

@@ -87,6 +87,13 @@ function getToken(): string {
 function authHeaders(): HeadersInit {
   return { Authorization: `Bearer ${getToken()}` };
 }
+// Everything in the stats comes from visitors, so escape it before it goes into HTML
+function escapeDeep<T>(v: T): T {
+  if (typeof v === 'string') return esc(v) as unknown as T;
+  if (Array.isArray(v)) return v.map(escapeDeep) as unknown as T;
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, escapeDeep(x)])) as T;
+  return v;
+}
 function esc(v: unknown): string {
   return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 }
@@ -183,7 +190,7 @@ async function loadStats(): Promise<void> {
     if (!response.ok) throw new Error('Failed to fetch stats');
     needsToken = false;
     if (trafficResponse.ok) traffic = await trafficResponse.json();
-    stats = await response.json();
+    stats = escapeDeep(await response.json());
     loading = false;
     error = null;
     lastUpdated = new Date();
