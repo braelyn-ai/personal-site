@@ -1,0 +1,4 @@
+# Railway's nixpacks builder runs `pip install uv==$NIXPACKS_UV_VERSION` and no longer
+# fills in a default, so pin the uv that wrote uv.lock.
+[variables]
+NIXPACKS_UV_VERSION = "0.13.7"
