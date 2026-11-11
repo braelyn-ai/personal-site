@@ -126,5 +126,6 @@ jobs:
 
       - name: Migrations roll back and forward
         run: |
-          docker exec api sh -c 'cd /app && uv run alembic downgrade -1 && uv run alembic upgrade head' \
+          # nixpacks puts uv in /opt/venv, which only the image's login shell has on PATH
+          docker exec api sh -c 'cd /app && export PATH=/opt/venv/bin:$PATH && uv run alembic downgrade -1 && uv run alembic upgrade head' \
             || { docker logs api; exit 1; }
