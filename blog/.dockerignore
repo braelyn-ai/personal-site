@@ -6,3 +6,5 @@ urbex/_template.html
 __pycache__
 # Videos are Git LFS and stream from the asset bucket
 assets/**/*.mp4
+edit.py
+editor/

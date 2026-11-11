@@ -52,6 +52,22 @@ Deploy anywhere that serves static files:
 - **Vercel**: Connect and deploy
 - **Any host**: Upload via FTP/SFTP
 
+## Editing Posts Visually
+
+```bash
+python3 blog/edit.py    # opens http://localhost:8001
+```
+
+Open any post and edit it right on the page. Click into text to change it, use the toolbar (or ⌘B / ⌘I / ⌘K) for bold, italics and links, drag photos to reorder them, and hover a photo to remove it. **Save** (⌘S) writes the change into the post's `.html` file, so check `git diff` and commit as usual.
+
+- Only the content inside `<article>` changes. Lines you didn't touch stay exactly as they were.
+- Pasted text arrives as plain text.
+- The map, stats and lightbox are switched off while editing.
+- Titles, dates and descriptions shown in lists come from `posts.json` / `rides.json` / `urbex.json`, not the page.
+- If the file changes on disk while you're editing (say, Claude edits it), Save refuses instead of overwriting. Reload to pick up the new version.
+
+It only listens on `127.0.0.1`, and `edit.py` / `editor/` aren't shipped in the Docker image.
+
 ## Adding New Posts
 
 ### 1. Create the HTML file
