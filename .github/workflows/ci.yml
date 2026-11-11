@@ -1,0 +1,131 @@
+# Builds each Railway service the way Railway does, boots it, and pokes it,
+# so a broken build or a dead server shows up on the PR instead of in production.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  blog:
+    name: Blog (blog.braelyn.ai)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: No broken local links (images, videos, pages, scripts)
+        run: python3 .github/scripts/check_blog_links.py blog
+
+      - name: Generated lists, feed and sitemap are up to date
+        working-directory: blog
+        run: |
+          python3 generate_feed.py
+          git diff --exit-code -I '<lastBuildDate>' -- . || {
+            echo "::error::Run 'python3 generate_feed.py' in blog/ and commit the result."
+            exit 1
+          }
+
+      - name: Build the Docker image (same Dockerfile as Railway)
+        run: docker build -t blog-ci blog
+
+      - name: Serve the main pages
+        run: |
+          docker run -d --name blog -p 8000:8000 blog-ci
+          for i in $(seq 1 30); do curl -sf http://localhost:8000/ >/dev/null && break; sleep 1; done
+          for path in / /rides/ /urbex/ /posts/sf_style.html /rides/baja-on-klrs.html /urbex/spreepark.html \
+                      /styles.css /ride-map.js /slurp.js /feed.xml /sitemap.xml; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8000$path")
+            echo "$code $path"
+            [ "$code" = 200 ] || { docker logs blog; exit 1; }
+          done
+
+  frontend:
+    name: Main site (braelyn.ai)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the Docker image (same Dockerfile as Railway)
+        run: docker build -t frontend-ci --build-arg VITE_API_URL=https://api.braelyn.ai desk
+
+      - name: Serve the site and the admin page
+        run: |
+          docker run -d --name frontend -p 8080:80 frontend-ci
+          for i in $(seq 1 30); do curl -sf http://localhost:8080/ >/dev/null && break; sleep 1; done
+          for path in / /admin.html; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080$path")
+            echo "$code $path"
+            [ "$code" = 200 ] || { docker logs frontend; exit 1; }
+          done
+
+  api:
+    name: API (api.braelyn.ai)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Railway builds the API with nixpacks, which is what broke in November 2026
+      - name: Install nixpacks
+        run: |
+          curl -sSL https://github.com/railwayapp/nixpacks/releases/download/v1.41.0/nixpacks-v1.41.0-x86_64-unknown-linux-musl.tar.gz | tar xz
+          sudo mv nixpacks /usr/local/bin/
+          nixpacks --version
+
+      - name: Build the image with nixpacks (same builder as Railway)
+        run: nixpacks build api --name api-ci
+
+      - name: Start it like Railway does (migrations, then the server)
+        run: |
+          docker run -d --name api --network host \
+            -e DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres \
+            -e PORT=8000 -e ADMIN_TOKEN=ci-token -e GEO_DIR=/tmp/geo \
+            api-ci
+          for i in $(seq 1 60); do curl -sf http://localhost:8000/health >/dev/null && break; sleep 2; done
+          curl -sf http://localhost:8000/health || { docker logs api; exit 1; }
+
+      - name: Smoke-test tracking and the admin lock
+        run: |
+          expect() {  # expect <status> <curl args...>
+            want=$1; shift
+            got=$(curl -s -o /dev/null -w '%{http_code}' "$@")
+            echo "$got (want $want): $*"
+            [ "$got" = "$want" ] || { docker logs api; exit 1; }
+          }
+          # The blog sends events as text/plain beacons
+          expect 200 -X POST http://localhost:8000/slurp -H 'Content-Type: text/plain' \
+            -d '{"event_type":"pageview","path":"/ci","referrer":"https://t.co/x","visitor_id":"ci"}'
+          # Older clients send JSON
+          expect 200 -X POST http://localhost:8000/slurp -H 'Content-Type: application/json' \
+            -d '{"event_type":"social_click","event_data":"ci"}'
+          expect 422 -X POST http://localhost:8000/slurp -d 'not json'
+          expect 401 http://localhost:8000/api/admin/stats
+          expect 401 http://localhost:8000/api/admin/traffic -H 'Authorization: Bearer wrong'
+          expect 200 http://localhost:8000/api/admin/stats -H 'Authorization: Bearer ci-token'
+          expect 200 http://localhost:8000/api/admin/traffic -H 'Authorization: Bearer ci-token'
+
+      - name: Migrations roll back and forward
+        run: |
+          # nixpacks puts uv in /opt/venv, which only the image's login shell has on PATH
+          docker exec api sh -c 'cd /app && export PATH=/opt/venv/bin:$PATH && uv run alembic downgrade -1 && uv run alembic upgrade head' \
+            || { docker logs api; exit 1; }
