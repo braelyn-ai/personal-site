@@ -69,6 +69,11 @@ This project uses PostgreSQL and Alembic for database migrations.
     cp .env.example .env
     ```
     Update `DATABASE_URL` in `.env` with your PostgreSQL credentials.
+    Set `ADMIN_TOKEN` to a long random string. The `/api/admin/*` endpoints (and the
+    `/admin` dashboard) require it as `Authorization: Bearer <token>`, and stay closed if it's unset.
+
+    Visitor locations come from the free [DB-IP City Lite](https://db-ip.com/db/download/ip-to-city-lite)
+    database (CC BY 4.0), downloaded to `GEO_DIR` (default `/tmp/geo`) on startup.
 
 2.  **Run Migrations**:
     Apply migrations to set up the database schema:

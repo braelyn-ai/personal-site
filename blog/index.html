@@ -196,24 +196,10 @@
         <p>&copy; <script>document.write(new Date().getFullYear())</script> Braelyn Boynton</p>
     </footer>
 
+    <script src="slurp.js?v=3"></script>
     <script>
-        const API_BASE = 'https://api.braelyn.ai';
-
-        function slurp(eventType, eventData) {
-            fetch(`${API_BASE}/slurp`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ event_type: eventType, event_data: eventData }),
-            }).catch(() => {});
-        }
-
-        // Track blog home page view
+        // Homepage clicks (slurp.js already records the page view and referrer)
         slurp('blog_page_view');
-
-        // Track referrer
-        if (document.referrer && !document.referrer.includes(location.hostname)) {
-            slurp('referral', document.referrer);
-        }
 
         // Track social link clicks
         document.querySelectorAll('.social-links a').forEach(link => {

@@ -53,11 +53,50 @@ interface AdminStats {
   recent_events: RecentEvent[];
 }
 
+interface Row { key: string; views: number; visitors: number; avg_seconds?: number | null; avg_scroll?: number | null; }
+
+interface Traffic {
+  days: number;
+  totals: { views: number; visitors: number; sessions: number; avg_seconds: number; bot_views_excluded: number };
+  daily: { date: string; views: number; visitors: number }[];
+  pages: Row[];
+  sources: Row[];
+  page_sources: { path: string; source: string; views: number }[];
+  campaigns: Row[];
+  countries: Row[];
+  places: Row[];
+  devices: Row[];
+  browsers: Row[];
+  os: Row[];
+  recent: { time: string | null; path: string | null; title: string | null; source: string; place: string | null; device: string | null; browser: string | null; visitor: string }[];
+}
+
 const API_URL = import.meta.env.PROD 
   ? 'https://api.braelyn.ai' 
   : 'http://localhost:8000';
 
 let stats: AdminStats | null = null;
+let traffic: Traffic | null = null;
+let trafficDays = 30;
+let needsToken = false;
+
+const TOKEN_KEY = 'admin_token';
+function getToken(): string {
+  try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
+}
+function authHeaders(): HeadersInit {
+  return { Authorization: `Bearer ${getToken()}` };
+}
+// Everything in the stats comes from visitors, so escape it before it goes into HTML
+function escapeDeep<T>(v: T): T {
+  if (typeof v === 'string') return esc(v) as unknown as T;
+  if (Array.isArray(v)) return v.map(escapeDeep) as unknown as T;
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, escapeDeep(x)])) as T;
+  return v;
+}
+function esc(v: unknown): string {
+  return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+}
 let loading = true;
 let error: string | null = null;
 let lastUpdated: Date | null = null;
@@ -139,10 +178,19 @@ function getTypePercentage(count: number): number {
 }
 
 async function loadStats(): Promise<void> {
+  if (!getToken()) { needsToken = true; loading = false; render(); return; }
   try {
-    const response = await fetch(`${API_URL}/api/admin/stats`);
+    const [response, trafficResponse] = await Promise.all([
+      fetch(`${API_URL}/api/admin/stats`, { headers: authHeaders() }),
+      fetch(`${API_URL}/api/admin/traffic?days=${trafficDays}`, { headers: authHeaders() }),
+    ]);
+    if (response.status === 401 || trafficResponse.status === 401) {
+      needsToken = true; loading = false; error = 'That token didn\'t work.'; render(); return;
+    }
     if (!response.ok) throw new Error('Failed to fetch stats');
-    stats = await response.json();
+    needsToken = false;
+    if (trafficResponse.ok) traffic = await trafficResponse.json();
+    stats = escapeDeep(await response.json());
     loading = false;
     error = null;
     lastUpdated = new Date();
@@ -485,8 +533,110 @@ function renderRecentEvents(): string {
   `;
 }
 
+function fmtSeconds(s: number | null | undefined): string {
+  if (s == null) return '–';
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+function barList(title: string, rows: Row[], opts: { empty?: string; label?: (r: Row) => string; extra?: (r: Row) => string } = {}): string {
+  const max = rows.length ? Math.max(...rows.map((r) => r.views)) : 1;
+  return `
+    <section class="blog-views-section">
+      <h2 class="section-title">${title}</h2>
+      ${rows.length === 0
+        ? `<p class="no-data-msg">${opts.empty ?? 'Nothing yet.'}</p>`
+        : `<div class="blog-views-list">${rows.map((r) => `
+          <div class="blog-view-item">
+            <div class="blog-view-info">
+              <span class="blog-view-title">${esc(opts.label ? opts.label(r) : r.key)}</span>
+              <span class="blog-view-slug">${formatNumber(r.visitors)} visitors${opts.extra ? ' · ' + opts.extra(r) : ''}</span>
+            </div>
+            <div class="blog-view-bar-container"><div class="blog-view-bar" style="width: ${(r.views / max) * 100}%;"></div></div>
+            <span class="blog-view-count">${formatNumber(r.views)}</span>
+          </div>`).join('')}</div>`}
+    </section>`;
+}
+
+function renderTraffic(): string {
+  if (!traffic) return '';
+  const t = traffic;
+  const maxDay = t.daily.length ? Math.max(...t.daily.map((d) => d.views)) : 1;
+  const range = [7, 30, 90, 365].map((d) =>
+    `<button class="refresh-btn ${d === trafficDays ? 'active' : ''}" onclick="window.setTrafficDays(${d})">${d === 365 ? '1y' : d + 'd'}</button>`).join('');
+  return `
+    <section class="traffic-header">
+      <h2 class="section-title">🌍 Traffic</h2>
+      <div class="header-actions">${range}</div>
+    </section>
+    <section class="metrics-grid">
+      ${[['👁️', t.totals.views, 'Page views'], ['🧑', t.totals.visitors, 'Visitors'], ['🗂️', t.totals.sessions, 'Sessions'],
+         ['⏱️', fmtSeconds(t.totals.avg_seconds), 'Avg time on page'], ['🤖', t.totals.bot_views_excluded, 'Bot views hidden']]
+        .map(([icon, v, label]) => `
+        <div class="metric-card">
+          <div class="metric-icon">${icon}</div>
+          <div class="metric-content">
+            <div class="metric-value">${typeof v === 'number' ? formatNumber(v) : v}</div>
+            <div class="metric-label">${label}</div>
+          </div>
+        </div>`).join('')}
+    </section>
+    <section class="chart-card">
+      <h3 class="chart-title">Views per day</h3>
+      <div class="timeline-container"><div class="timeline-bars">
+        ${t.daily.map((d) => `
+          <div class="timeline-bar-wrapper" title="${d.date}: ${d.views} views, ${d.visitors} visitors">
+            <div class="timeline-bar" style="height: ${(d.views / maxDay) * 100}%;"></div>
+            <span class="timeline-label">${formatDate(d.date)}</span>
+          </div>`).join('')}
+      </div></div>
+    </section>
+    ${barList('Pages', t.pages, { extra: (r) => `${fmtSeconds(r.avg_seconds)} avg · ${r.avg_scroll ?? '–'}% scrolled` })}
+    ${barList('Where they came from', t.sources, { empty: 'No sources yet.' })}
+    <section class="recent-events-section">
+      <h2 class="section-title">Which pages, from where</h2>
+      <div class="events-table-container"><table class="events-table">
+        <thead><tr><th>Page</th><th>Source</th><th>Views</th></tr></thead>
+        <tbody>${t.page_sources.map((r) => `<tr class="event-row"><td class="data-cell">${esc(r.path)}</td><td class="data-cell">${esc(r.source)}</td><td>${formatNumber(r.views)}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </section>
+    ${t.campaigns.length ? barList('Campaigns (utm_campaign)', t.campaigns) : ''}
+    ${barList('Countries', t.countries)}
+    ${barList('Cities', t.places, { label: (r) => r.key.replace(/\?, /g, '').replace(/, \?$/, '') })}
+    <section class="charts-row">
+      ${barList('Devices', t.devices)}
+      ${barList('Browsers', t.browsers)}
+      ${barList('Operating systems', t.os)}
+    </section>
+    <section class="recent-events-section">
+      <h2 class="section-title">Latest page views</h2>
+      <div class="events-table-container"><table class="events-table">
+        <thead><tr><th>Time</th><th>Page</th><th>Source</th><th>Where</th><th>Device</th><th>Visitor</th></tr></thead>
+        <tbody>${t.recent.map((r) => `<tr class="event-row">
+          <td class="time-cell">${formatDateTime(r.time)}</td>
+          <td class="data-cell" title="${esc(r.title)}">${esc(r.path)}</td>
+          <td class="data-cell">${esc(r.source)}</td>
+          <td class="data-cell">${esc(r.place ?? '–')}</td>
+          <td class="data-cell">${esc([r.device, r.browser].filter(Boolean).join(' · '))}</td>
+          <td class="data-cell"><code>${esc(r.visitor)}</code></td></tr>`).join('')}</tbody>
+      </table></div>
+    </section>
+    <h2 class="section-title all-events-title">📊 All events</h2>
+  `;
+}
+
+function renderTokenForm(): string {
+  return `
+    <form class="token-form" onsubmit="window.saveToken(event)">
+      <p>Enter the admin token (the <code>ADMIN_TOKEN</code> set on the API).</p>
+      ${error ? `<p class="no-data-msg">${esc(error)}</p>` : ''}
+      <input type="password" name="token" autocomplete="current-password" placeholder="Admin token" autofocus>
+      <button class="retry-btn" type="submit">Unlock</button>
+    </form>`;
+}
+
 function renderDashboard(): string {
   return `
+    ${renderTraffic()}
     ${renderMetrics()}
     <section class="charts-row">
       ${renderTypesChart()}
@@ -523,9 +673,10 @@ function render(): void {
       </header>
       
       <div class="dashboard">
-        ${loading && !stats ? renderLoadingState() : ''}
-        ${error && !stats ? renderErrorState() : ''}
-        ${stats ? renderDashboard() : ''}
+        ${needsToken ? renderTokenForm() : ''}
+        ${!needsToken && loading && !stats ? renderLoadingState() : ''}
+        ${!needsToken && error && !stats ? renderErrorState() : ''}
+        ${!needsToken && stats ? renderDashboard() : ''}
       </div>
     </div>
   `;
@@ -533,6 +684,13 @@ function render(): void {
 
 // Expose retry function globally
 (window as any).retryLoad = loadStats;
+(window as any).setTrafficDays = (d: number) => { trafficDays = d; loadStats(); };
+(window as any).saveToken = (e: Event) => {
+  e.preventDefault();
+  const v = ((e.target as HTMLFormElement).elements.namedItem('token') as HTMLInputElement).value.trim();
+  try { localStorage.setItem(TOKEN_KEY, v); } catch { /* private mode: token lasts for this page only */ }
+  error = null; loading = true; render(); loadStats();
+};
 
 // Initial load
 render();
