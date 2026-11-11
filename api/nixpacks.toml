@@ -1,4 +1,7 @@
-# Railway's nixpacks builder runs `pip install uv==$NIXPACKS_UV_VERSION` and no longer
-# fills in a default, so pin the uv that wrote uv.lock.
-[variables]
-NIXPACKS_UV_VERSION = "0.13.7"
+# Railway's nixpacks plan runs `pip install uv==$NIXPACKS_UV_VERSION`, and Railway leaves
+# that variable empty (it ignores a [variables] block here, unlike the nixpacks CLI).
+# So spell out the install step with the uv version that wrote uv.lock.
+[phases.install]
+cmds = [
+  "python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install uv==0.13.7 && uv sync --no-dev --frozen",
+]
