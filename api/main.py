@@ -317,17 +317,18 @@ async def get_admin_stats():
 
 @app.get("/api/admin/traffic", dependencies=[Depends(require_admin)])
 async def get_admin_traffic(days: int = 30):
-    """Page views: which pages, from where (sites, places, devices), over the last `days` days."""
+    """Page views: which pages, from where (sites, places, devices), over the last `days` days (0 = all time)."""
     from sqlalchemy import case, distinct, func as f
 
-    days = max(1, min(days, 365))
-    since = datetime.now() - timedelta(days=days)
+    days = max(0, min(days, 3650))
+    # No date filter at all for all time
+    window = [Event.created_at >= datetime.now() - timedelta(days=days)] if days else []
     db = SessionLocal()
     try:
         views = db.query(Event).filter(
-            Event.event_type == "pageview", Event.created_at >= since, Event.is_bot.isnot(True))
+            Event.event_type == "pageview", *window, Event.is_bot.isnot(True))
         leaves = db.query(Event).filter(
-            Event.event_type == "page_leave", Event.created_at >= since, Event.is_bot.isnot(True))
+            Event.event_type == "page_leave", *window, Event.is_bot.isnot(True))
         source = f.coalesce(Event.utm_source, Event.referrer_host, "direct")
 
         def top(col, n=20, q=views, label=None):
@@ -349,7 +350,7 @@ async def get_admin_traffic(days: int = 30):
             .group_by(f.date(Event.created_at)).order_by(f.date(Event.created_at)).all()
         recent = views.order_by(Event.created_at.desc()).limit(50).all()
         bots = db.query(f.count(Event.id)).filter(
-            Event.event_type == "pageview", Event.created_at >= since, Event.is_bot.is_(True)).scalar()
+            Event.event_type == "pageview", *window, Event.is_bot.is_(True)).scalar()
 
         return {
             "days": days,

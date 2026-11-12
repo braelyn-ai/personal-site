@@ -31,13 +31,25 @@ interface Stats {
 
 const API_URL = import.meta.env.PROD ? 'https://api.braelyn.ai' : 'http://localhost:8000';
 const TOKEN_KEY = 'admin_token';
-const RANGES: [number, string][] = [[7, '7 days'], [30, '30 days'], [90, '90 days'], [365, '1 year']];
+const THEME_KEY = 'admin_theme';
+
+// Light or dark: follows the system until you pick one, then remembers it
+function theme(): 'light' | 'dark' {
+  const set = document.documentElement.dataset.theme;
+  if (set === 'light' || set === 'dark') return set;
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+try {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+} catch { /* storage blocked: just follow the system */ }
+const RANGES: [number, string][] = [[0, 'All time'], [365, '1 year'], [90, '90 days'], [30, '30 days'], [7, '7 days']];
 // OnlyFans clicks that came through the old zaap.bio link page, before this site tracked them
 const ZAAP_ONLYFANS_CLICKS = 4329;
 
 let traffic: Traffic | null = null;
 let stats: Stats | null = null;
-let days = 30;
+let days = 0; // 0 = all time
 let state: 'loading' | 'locked' | 'ready' | 'error' = 'loading';
 let message = '';
 let updated: Date | null = null;
@@ -138,23 +150,36 @@ function rowsOf(list: Row[], label = (r: Row) => r.key) {
 }
 
 function chart(t: Traffic): string {
+  if (!t.daily.length) return '';
   // The API skips days with no views; fill them in so the bars line up with the calendar
+  const DAY = 86400000;
+  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
   const byDate = new Map(t.daily.map((d) => [d.date, d]));
-  const end = t.daily.length ? new Date(t.daily[t.daily.length - 1].date + 'T00:00:00Z') : new Date();
-  const out: { date: string; views: number; visitors: number }[] = [];
-  for (let i = t.days - 1; i >= 0; i--) {
-    const d = new Date(end.getTime() - i * 86400000).toISOString().slice(0, 10);
-    out.push(byDate.get(d) ?? { date: d, views: 0, visitors: 0 });
+  const end = Date.parse(iso(Date.now()) + 'T00:00:00Z');
+  const start = t.days ? end - (t.days - 1) * DAY : Date.parse(t.daily[0].date + 'T00:00:00Z');
+  const filled: { date: string; views: number; visitors: number }[] = [];
+  for (let ms = start; ms <= end; ms += DAY) filled.push(byDate.get(iso(ms)) ?? { date: iso(ms), views: 0, visitors: 0 });
+
+  // Past ~4 months, daily bars get too thin to read, so add them up by month
+  const monthly = filled.length > 120;
+  const bars: { key: string; label: string; views: number; visitors?: number }[] = [];
+  for (const d of filled) {
+    const key = monthly ? d.date.slice(0, 7) : d.date;
+    const last = bars[bars.length - 1];
+    if (last?.key === key) last.views += d.views;
+    else bars.push({ key, label: '', views: d.views, visitors: monthly ? undefined : d.visitors });
   }
-  const max = Math.max(1, ...out.map((d) => d.views));
-  const fmt = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const fmt = (key: string) => new Date((monthly ? key + '-01' : key) + 'T00:00:00Z').toLocaleDateString('en-US',
+    monthly ? { month: 'short', year: 'numeric', timeZone: 'UTC' } : { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const max = Math.max(1, ...bars.map((d) => d.views));
+  const unit = monthly ? 'month' : 'day';
   return `
-    <section class="chart" aria-label="Views per day">
-      <div class="chart-top"><span>Views per day</span><span>peak ${num(max)}</span></div>
+    <section class="chart" aria-label="Views per ${unit}">
+      <div class="chart-top"><span>Views per ${unit}</span><span>peak ${num(max)}</span></div>
       <div class="bars">
-        ${out.map((d) => `<span class="day" title="${fmt(d.date)}: ${num(d.views)} views, ${num(d.visitors)} visitors"><i style="height:${(d.views / max) * 100}%"></i></span>`).join('')}
+        ${bars.map((d) => `<span class="day" title="${fmt(d.key)}: ${num(d.views)} views${d.visitors != null ? `, ${num(d.visitors)} visitors` : ''}"><i style="height:${(d.views / max) * 100}%"></i></span>`).join('')}
       </div>
-      <div class="chart-axis"><span>${fmt(out[0].date)}</span><span>${fmt(out[out.length - 1].date)}</span></div>
+      <div class="chart-axis"><span>${fmt(bars[0].key)}</span><span>${fmt(bars[bars.length - 1].key)}</span></div>
     </section>`;
 }
 
@@ -269,6 +294,7 @@ function render(): void {
     <main>
       <header>
         <h1>Analytics</h1>
+        <button class="link theme" data-act="theme">${theme() === 'dark' ? 'Light mode' : 'Dark mode'}</button>
         ${state === 'locked' ? '' : `
         <nav class="range">${RANGES.map(([d, l]) => `<button data-days="${d}" ${d === days ? 'aria-current="true"' : ''}>${l}</button>`).join('')}</nav>
         <span class="status">${state === 'error' ? `<span class="err">${esc(message)}</span>` : updated ? `Updated ${updated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}
@@ -291,6 +317,12 @@ document.addEventListener('click', (e) => {
   if (el.dataset.days) { days = Number(el.dataset.days); load(); render(); }
   else if (el.dataset.toggle) { const k = el.dataset.toggle; shown.has(k) ? shown.delete(k) : shown.add(k); render(); }
   else if (el.dataset.act === 'refresh') load();
+  else if (el.dataset.act === 'theme') {
+    const next = theme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem(THEME_KEY, next); } catch { /* lasts for this page only */ }
+    render();
+  }
 });
 
 document.addEventListener('submit', (e) => {
@@ -299,6 +331,9 @@ document.addEventListener('submit', (e) => {
   setToken((document.getElementById('token') as HTMLInputElement).value.trim());
   message = ''; state = 'loading'; render(); load();
 });
+
+// Keep the toggle's label right if the system theme flips while you're here
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => render());
 
 // Refresh when you come back to the tab, and every 2 minutes while it's open
 document.addEventListener('visibilitychange', () => { if (!document.hidden && state === 'ready') load(); });
