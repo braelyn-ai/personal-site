@@ -1,0 +1,71 @@
+/* Edit mode only (loaded by edit.py) */
+.ed-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: calc(100vw - 32px);
+    padding: 6px 8px;
+    border-radius: 10px;
+    background: #1d1d1f;
+    color: #f5f5f7;
+    font: 13px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+}
+.ed-bar button {
+    min-width: 30px;
+    height: 28px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+.ed-bar button:hover:not(:disabled) { background: #3a3a3c; }
+.ed-bar button:disabled { opacity: 0.35; cursor: default; }
+.ed-bar .ed-save { background: #0a84ff; font-weight: 600; }
+.ed-bar .ed-save:hover:not(:disabled) { background: #409cff; }
+.ed-bar .ed-save:disabled { background: #3a3a3c; }
+.ed-title { padding: 0 8px 0 4px; font-weight: 600; color: #ff9f0a; }
+.ed-sep { width: 1px; height: 18px; margin: 0 4px; background: #48484a; }
+.ed-status { padding: 0 8px; color: #a1a1a6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+article[contenteditable="true"] { outline: none; }
+article[contenteditable="true"] :is(p, h1, h2, h3, li, figcaption):hover { box-shadow: -8px 0 0 -6px #ff9f0a; }
+article figcaption[contenteditable="true"]:empty::before { content: "Add a caption"; opacity: 0.35; }
+
+/* The map is drawn by ride-map.js, which edit mode leaves off */
+article .ride-map:empty, article [data-gpx]:empty {
+    display: grid;
+    place-items: center;
+    min-height: 80px;
+    border: 1px dashed currentColor;
+    opacity: 0.4;
+}
+article .ride-map:empty::before, article [data-gpx]:empty::before { content: "Map (hidden while editing)"; }
+
+.ride-gallery figure[draggable="true"] { position: relative; cursor: grab; }
+.ride-gallery figure.ed-dragging { opacity: 0.3; }
+.ed-del {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.ride-gallery figure:hover .ed-del { opacity: 1; }
+.ed-del:hover { background: #ff453a; }
