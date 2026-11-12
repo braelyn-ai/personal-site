@@ -1,0 +1,54 @@
+# Adds a note to the blog's wall and pushes it to main, which redeploys the blog.
+# Run it from the Actions tab, with `gh workflow run add-note.yml -f text="..."`,
+# or from OpenClaw (see openclaw/wall-note/). The only credential needed is a
+# token that can trigger workflows; it can't push code itself.
+name: Add a note to the wall
+
+on:
+  workflow_dispatch:
+    inputs:
+      text:
+        description: The note (blank lines make paragraphs; URLs become links)
+        required: true
+        type: string
+      date:
+        description: "YYYY-MM-DD (default: today in San Francisco)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+# One note at a time, so two quick posts don't race each other to main
+concurrency:
+  group: add-note
+  cancel-in-progress: false
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Add the note
+        env:
+          # Passed through the environment, never pasted into the script, so the note can't run commands
+          TEXT: ${{ inputs.text }}
+          DATE: ${{ inputs.date }}
+        run: |
+          if [ "${#TEXT}" -gt 5000 ]; then echo "::error::The note is over 5000 characters."; exit 1; fi
+          printf '%s' "$TEXT" | python3 blog/new_note.py --date "${DATE:-$(TZ=America/Los_Angeles date +%F)}"
+          git checkout -- blog/feed.xml   # only its timestamp changes; notes aren't in the feed
+          python3 .github/scripts/check_blog_links.py blog
+
+      - name: Commit and push to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add blog/notes.json blog/index.html blog/wall blog/sitemap.xml
+          git commit -q -m "Add a note to the wall"
+          git push origin HEAD:main
+          echo "Posted. It's live at https://blog.braelyn.ai/wall/ once the blog redeploys (about a minute)." >> "$GITHUB_STEP_SUMMARY"

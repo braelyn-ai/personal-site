@@ -1198,8 +1198,23 @@ hr {
     text-decoration: none;
 }
 
-.note-name:hover {
+/* The date links to the note's own page, like a tweet's timestamp */
+.note-date {
+    color: inherit;
+    text-decoration: none;
+}
+
+.note-date:hover {
     text-decoration: underline;
+}
+
+.note-more {
+    font-size: 0.8rem;
+}
+
+/* A note on its own page reads a bit bigger */
+.note-single .note-text {
+    font-size: 1rem;
 }
 
 /* Phones: drop the handle so the date always fits */
