@@ -11,6 +11,7 @@
     --border: #ddd;
     --blockquote-border: #ccc;
     --blockquote-text: #666;
+    --card: #fff;
 }
 
 [data-theme="dark"] {
@@ -22,6 +23,7 @@
     --border: #333;
     --blockquote-border: #555;
     --blockquote-text: #aaa;
+    --card: #232323;
 }
 
 body {
@@ -1112,13 +1114,16 @@ hr {
 }
 
 /* Notes: short dated thoughts with no page of their own */
-.note {
-    padding: 1.1rem 0;
-    border-bottom: 1px solid var(--border);
+.notes {
+    display: grid;
+    gap: 0.75rem;
 }
 
-.note:last-of-type {
-    border-bottom: 0;
+.note {
+    padding: 0.9rem 1.1rem 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
 }
 
 .note .post-meta {
