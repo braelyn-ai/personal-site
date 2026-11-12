@@ -4,7 +4,7 @@
 - feed.xml     RSS feed
 - sitemap.xml  for search engines (robots.txt points at it)
 - the latest posts and notes in index.html, every post in posts/index.html,
-  every note in notes/index.html, and the ride and urbex lists in
+  every note on the wall in wall/index.html, and the ride and urbex lists in
   rides/index.html and urbex/index.html, written as
   plain HTML between <!-- posts:start --> / <!-- posts:end --> style markers so
   crawlers and link previews see them without running JavaScript
@@ -43,7 +43,7 @@ def load_entries():
 
 
 def load_notes():
-    """notes.json, newest first. Notes from the same day keep their order in the file."""
+    """notes.json (the notes on the wall), newest first. Notes from the same day keep their order in the file."""
     path = ROOT / "notes.json"
     if not path.exists():
         return []
@@ -124,7 +124,7 @@ def generate_sitemap(posts, rides, urbex, notes):
     if posts:
         add(f"{BLOG_URL}/posts/", max(modified_date(p) for p in posts))
     if notes:
-        add(f"{BLOG_URL}/notes/", notes[0]["date"])
+        add(f"{BLOG_URL}/wall/", notes[0]["date"])
     if rides:
         add(f"{BLOG_URL}/rides/", max(modified_date(r) for r in rides))
     if urbex:
@@ -176,12 +176,28 @@ def note_text(text):
     return "".join(para(c) for c in re.split(r"\n\s*\n", text.strip()) if c.strip())
 
 
-def note_html(note, indent):
+def note_card(note, indent):
+    """A note as a small card, for the homepage's wall."""
+    pad = " " * indent
+    return (
+        f'{pad}<div class="note-card">\n'
+        f'{pad}    <time class="post-meta" datetime="{note["date"]}">{pretty_date(note["date"])}</time>\n'
+        f'{pad}    <div class="note-text">{note_text(note["text"])}</div>\n'
+        f'{pad}</div>'
+    )
+
+
+def note_post(note, indent):
+    """A note in the timeline on /wall/: avatar, name, handle, date, text."""
     pad = " " * indent
     return (
         f'{pad}<div class="note">\n'
-        f'{pad}    <time class="post-meta" datetime="{note["date"]}">{pretty_date(note["date"])}</time>\n'
-        f'{pad}    <div class="note-text">{note_text(note["text"])}</div>\n'
+        f'{pad}    <img class="note-avatar" src="../assets/me.jpg" alt="" width="40" height="40" loading="lazy">\n'
+        f'{pad}    <div class="note-body">\n'
+        f'{pad}        <div class="note-head"><a class="note-name" href="https://x.com/braelyn_ai">Braelyn Boynton</a>'
+        f' <span class="note-handle">@braelyn_ai</span> · <time datetime="{note["date"]}">{pretty_date(note["date"])}</time></div>\n'
+        f'{pad}        <div class="note-text">{note_text(note["text"])}</div>\n'
+        f'{pad}    </div>\n'
         f'{pad}</div>'
     )
 
@@ -306,21 +322,21 @@ def render_lists(posts, rides, urbex, notes):
     if len(posts) > HOME_POSTS:
         body += view_more("posts/", 12)
     text = fill(text, "posts", body)
-    body = "\n".join(note_html(n, 12) for n in notes[:HOME_NOTES])
+    body = "\n".join(note_card(n, 12) for n in notes[:HOME_NOTES])
     if len(notes) > HOME_NOTES:
-        body += view_more("notes/", 12)
-    text = fill(text, "notes", body)
-    # The homepage notes section only shows once there's a note
-    text = re.sub(r'<section id="notes-section"( hidden)?>',
-                  '<section id="notes-section">' if notes else '<section id="notes-section" hidden>', text)
+        body += view_more("wall/", 12)
+    text = fill(text, "wall", body)
+    # The homepage wall only shows once there's a note on it
+    text = re.sub(r'<section id="wall-section"( hidden)?>',
+                  '<section id="wall-section">' if notes else '<section id="wall-section" hidden>', text)
     index.write_text(text)
 
     posts_index = ROOT / "posts" / "index.html"
     posts_index.write_text(fill(posts_index.read_text(), "posts", "\n".join(post_html(p, 12, "../") for p in posts)))
 
-    notes_index = ROOT / "notes" / "index.html"
-    body = "\n".join(note_html(n, 12) for n in notes) or "            <p>No notes yet.</p>"
-    notes_index.write_text(fill(notes_index.read_text(), "notes", body))
+    wall_index = ROOT / "wall" / "index.html"
+    body = "\n".join(note_post(n, 12) for n in notes) or "            <p>No notes on the wall yet.</p>"
+    wall_index.write_text(fill(wall_index.read_text(), "wall", body))
 
     rides_index = ROOT / "rides" / "index.html"
     text = rides_index.read_text()
@@ -343,4 +359,4 @@ if __name__ == "__main__":
     generate_sitemap(posts, rides, urbex, notes)
     render_lists(posts, rides, urbex, notes)
     sync_urbex_badges(urbex)
-    print("Generated feed.xml, sitemap.xml and the lists in index.html, posts/, notes/, rides/ and urbex/")
+    print("Generated feed.xml, sitemap.xml and the lists in index.html, posts/, wall/, rides/ and urbex/")

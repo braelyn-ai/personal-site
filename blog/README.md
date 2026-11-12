@@ -153,9 +153,9 @@ Map tiles: OpenStreetMap, OpenTopoMap and Esri (no API keys).
 - `bike` (string, optional)
 - `tags` (array, optional)
 
-## Adding a Note
+## Adding a Note to the Wall
 
-Notes are short, unpolished thoughts. They don't get their own page; each one shows with its date in the Notes list (the latest 6 on the homepage, all of them at `/notes/`).
+The wall holds notes: short, unpolished thoughts. Notes don't get their own page. The latest 6 show as cards on the homepage, and `/wall/` shows all of them as a timeline.
 
 ```bash
 python3 blog/new_note.py "The thought"

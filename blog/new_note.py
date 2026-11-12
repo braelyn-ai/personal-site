@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add a note: a short, dated thought that shows on the homepage and on /notes/.
+"""Put a note on the wall: a short, dated thought that shows on the homepage and on /wall/.
 
     python3 blog/new_note.py "Thought goes here"
     python3 blog/new_note.py              # type or paste it, then Ctrl+D
@@ -21,7 +21,7 @@ NOTES = ROOT / "notes.json"
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Add a note to the blog.")
+    ap = argparse.ArgumentParser(description="Put a note on the blog's wall.")
     ap.add_argument("text", nargs="?", help="the note (omit to read it from stdin)")
     ap.add_argument("--date", default=date.today().isoformat(), help="YYYY-MM-DD (default: today)")
     args = ap.parse_args()
@@ -37,7 +37,7 @@ def main():
     notes.insert(0, {"date": args.date, "text": text})
     NOTES.write_text(json.dumps(notes, indent=2, ensure_ascii=False) + "\n")
     subprocess.run([sys.executable, str(ROOT / "generate_feed.py")], check=True)
-    print(f"Added a note for {args.date}. Review with `git diff`, then commit.")
+    print(f"Added a note to the wall for {args.date}. Review with `git diff`, then commit.")
 
 
 if __name__ == "__main__":

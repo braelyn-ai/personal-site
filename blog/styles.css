@@ -1113,30 +1113,105 @@ hr {
     }
 }
 
-/* Notes: short dated thoughts with no page of their own */
-.notes {
-    display: grid;
-    gap: 0.75rem;
+/* The wall: notes, short dated thoughts with no page of their own */
+.note-text {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
 }
 
-.note {
-    padding: 0.9rem 1.1rem 1rem;
+.note-text p {
+    margin: 0 0 0.5rem;
+}
+
+.note-text p:last-child {
+    margin-bottom: 0;
+}
+
+/* Homepage: each note is a small card */
+.note-cards {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.note-card {
+    padding: 0.7rem 0.9rem 0.8rem;
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 10px;
 }
 
-.note .post-meta {
+.note-card .post-meta {
     display: block;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.2rem;
 }
 
-.note-text p {
-    margin: 0 0 0.6rem;
+/* /wall/: a timeline, like a Twitter feed */
+.wall-feed {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    overflow: hidden;
 }
 
-.note-text p:last-child {
-    margin-bottom: 0;
+.note {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.note:last-child {
+    border-bottom: 0;
+}
+
+.note .note-avatar {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: none;
+}
+
+.note-body {
+    min-width: 0;
+    flex: 1;
+}
+
+.note-head {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 0.85rem;
+    line-height: 1.3;
+    color: var(--text-muted);
+    margin-bottom: 0.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.note-name {
+    color: var(--text);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.note-name:hover {
+    text-decoration: underline;
+}
+
+/* Phones: drop the handle so the date always fits */
+@media (max-width: 480px) {
+    .note-handle {
+        display: none;
+    }
+}
+
+.wall-feed > p {
+    margin: 0;
+    padding: 1rem;
 }
 
 /* "View more" under the homepage lists */
