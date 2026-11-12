@@ -1,59 +1,10 @@
 import './admin.css';
 
-interface EventsByType {
-  type: string;
-  count: number;
-}
+// Two endpoints feed this page:
+//   /api/admin/traffic: page views (with visitor, source, place, device), filtered by range
+//   /api/admin/stats:   the older event counters (link clicks, raw events), all time
 
-interface EventsByDay {
-  date: string;
-  count: number;
-}
-
-interface RecentEvent {
-  id: number;
-  event_type: string;
-  event_data: string | null;
-  ip_address: string | null;
-  user_agent: string | null;
-  created_at: string | null;
-}
-
-interface SocialClickByType {
-  type: string;
-  count: number;
-}
-
-interface BlogPostView {
-  slug: string;
-  count: number;
-}
-
-interface BlogPostVisit {
-  slug: string;
-  count: number;
-}
-
-interface Referrer {
-  url: string;
-  count: number;
-}
-
-interface AdminStats {
-  total_events: number;
-  events_by_type: EventsByType[];
-  events_last_24h: number;
-  events_last_7d: number;
-  unique_ips: number;
-  events_by_day: EventsByDay[];
-  social_clicks_by_type: SocialClickByType[];
-  blog_post_views: BlogPostView[];
-  blog_post_visits: BlogPostVisit[];
-  top_referrers: Referrer[];
-  recent_events: RecentEvent[];
-}
-
-interface Row { key: string; views: number; visitors: number; avg_seconds?: number | null; avg_scroll?: number | null; }
+interface Row { key: string; views: number; visitors: number; avg_seconds?: number | null; avg_scroll?: number | null }
 
 interface Traffic {
   days: number;
@@ -71,630 +22,322 @@ interface Traffic {
   recent: { time: string | null; path: string | null; title: string | null; source: string; place: string | null; device: string | null; browser: string | null; visitor: string }[];
 }
 
-const API_URL = import.meta.env.PROD 
-  ? 'https://api.braelyn.ai' 
-  : 'http://localhost:8000';
+interface Stats {
+  total_events: number;
+  events_by_type: { type: string; count: number }[];
+  social_clicks_by_type: { type: string; count: number }[];
+  recent_events: { id: number; event_type: string; event_data: string | null; ip_address: string | null; user_agent: string | null; created_at: string | null }[];
+}
 
-let stats: AdminStats | null = null;
-let traffic: Traffic | null = null;
-let trafficDays = 30;
-let needsToken = false;
-
+const API_URL = import.meta.env.PROD ? 'https://api.braelyn.ai' : 'http://localhost:8000';
 const TOKEN_KEY = 'admin_token';
+const THEME_KEY = 'admin_theme';
+
+// Light or dark: follows the system until you pick one, then remembers it
+function theme(): 'light' | 'dark' {
+  const set = document.documentElement.dataset.theme;
+  if (set === 'light' || set === 'dark') return set;
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+try {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+} catch { /* storage blocked: just follow the system */ }
+const RANGES: [number, string][] = [[0, 'All time'], [365, '1 year'], [90, '90 days'], [30, '30 days'], [7, '7 days']];
+// OnlyFans clicks that came through the old zaap.bio link page, before this site tracked them
+const ZAAP_ONLYFANS_CLICKS = 4329;
+
+let traffic: Traffic | null = null;
+let stats: Stats | null = null;
+let days = 0; // 0 = all time
+let state: 'loading' | 'locked' | 'ready' | 'error' = 'loading';
+let message = '';
+let updated: Date | null = null;
+const shown = new Set<string>(); // tables expanded past their first rows; kept across refreshes
+
 function getToken(): string {
   try { return localStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
 }
-function authHeaders(): HeadersInit {
-  return { Authorization: `Bearer ${getToken()}` };
+
+function setToken(v: string): void {
+  try { localStorage.setItem(TOKEN_KEY, v); } catch { /* private mode: lasts for this page only */ }
+  memToken = v;
 }
-// Everything in the stats comes from visitors, so escape it before it goes into HTML
-function escapeDeep<T>(v: T): T {
-  if (typeof v === 'string') return esc(v) as unknown as T;
-  if (Array.isArray(v)) return v.map(escapeDeep) as unknown as T;
-  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, escapeDeep(x)])) as T;
-  return v;
-}
+let memToken = getToken();
+
+// Everything below comes from visitors (paths, referrers, user agents), so it's escaped on the way into HTML
 function esc(v: unknown): string {
   return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 }
-let loading = true;
-let error: string | null = null;
-let lastUpdated: Date | null = null;
 
-function getEventTypeColor(type: string): string {
-  const colors: Record<string, string> = {
-    'page_view': '#4ecdc4',
-    'click': '#ff6b6b',
-    'scroll': '#ffd93d',
-    'interaction': '#95e1d3',
-    'error': '#ff4757',
-    'navigation': '#5f27cd',
-    'terminal_start': '#00d2d3',
-    'terminal_command': '#54a0ff',
-  };
-  return colors[type.toLowerCase()] || '#6c5ce7';
-}
+const num = (n: number) => n.toLocaleString('en-US');
 
-function getEventTypeEmoji(type: string): string {
-  const emojis: Record<string, string> = {
-    'page_view': '👁️',
-    'click': '👆',
-    'scroll': '📜',
-    'interaction': '🤝',
-    'error': '⚠️',
-    'navigation': '🧭',
-    'terminal_start': '💻',
-    'terminal_command': '⌨️',
-  };
-  return emojis[type.toLowerCase()] || '📊';
-}
-
-function formatNumber(num: number): string {
-  return num.toLocaleString();
-}
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function formatDateTime(dateStr: string | null): string {
-  if (!dateStr) return 'N/A';
-  const date = new Date(dateStr);
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
-}
-
-function getMaxDayCount(): number {
-  if (!stats?.events_by_day.length) return 1;
-  return Math.max(...stats.events_by_day.map(d => d.count));
-}
-
-function getBarHeight(count: number): number {
-  const max = getMaxDayCount();
-  return max > 0 ? (count / max) * 100 : 0;
-}
-
-function getTotalTypeCount(): number {
-  if (!stats?.events_by_type.length) return 0;
-  return stats.events_by_type.reduce((sum, t) => sum + t.count, 0);
-}
-
-function getTypePercentage(count: number): number {
-  const total = getTotalTypeCount();
-  return total > 0 ? (count / total) * 100 : 0;
-}
-
-async function loadStats(): Promise<void> {
-  if (!getToken()) { needsToken = true; loading = false; render(); return; }
-  try {
-    const [response, trafficResponse] = await Promise.all([
-      fetch(`${API_URL}/api/admin/stats`, { headers: authHeaders() }),
-      fetch(`${API_URL}/api/admin/traffic?days=${trafficDays}`, { headers: authHeaders() }),
-    ]);
-    if (response.status === 401 || trafficResponse.status === 401) {
-      needsToken = true; loading = false; error = 'That token didn\'t work.'; render(); return;
-    }
-    if (!response.ok) throw new Error('Failed to fetch stats');
-    needsToken = false;
-    if (trafficResponse.ok) traffic = await trafficResponse.json();
-    stats = escapeDeep(await response.json());
-    loading = false;
-    error = null;
-    lastUpdated = new Date();
-    render();
-  } catch (err) {
-    console.error('Failed to load stats:', err);
-    error = 'Failed to load statistics';
-    loading = false;
-    render();
-  }
-}
-
-function renderLoadingState(): string {
-  return `
-    <div class="loading-state">
-      <div class="loader"></div>
-      <p>Loading analytics...</p>
-    </div>
-  `;
-}
-
-function renderErrorState(): string {
-  return `
-    <div class="error-state">
-      <span class="error-icon">⚠️</span>
-      <p>${error}</p>
-      <button class="retry-btn" onclick="window.retryLoad()">Try Again</button>
-    </div>
-  `;
-}
-
-function renderMetrics(): string {
-  if (!stats) return '';
-  return `
-    <section class="metrics-grid">
-      <div class="metric-card total">
-        <div class="metric-icon">📈</div>
-        <div class="metric-content">
-          <span class="metric-value">${formatNumber(stats.total_events)}</span>
-          <span class="metric-label">Total Events</span>
-        </div>
-      </div>
-      
-      <div class="metric-card recent">
-        <div class="metric-icon">⚡</div>
-        <div class="metric-content">
-          <span class="metric-value">${formatNumber(stats.events_last_24h)}</span>
-          <span class="metric-label">Last 24 Hours</span>
-        </div>
-      </div>
-      
-      <div class="metric-card weekly">
-        <div class="metric-icon">📅</div>
-        <div class="metric-content">
-          <span class="metric-value">${formatNumber(stats.events_last_7d)}</span>
-          <span class="metric-label">Last 7 Days</span>
-        </div>
-      </div>
-      
-      <div class="metric-card unique">
-        <div class="metric-icon">🌐</div>
-        <div class="metric-content">
-          <span class="metric-value">${formatNumber(stats.unique_ips)}</span>
-          <span class="metric-label">Unique Visitors</span>
-        </div>
-      </div>
-    </section>
-  `;
-}
-
-function renderTypesChart(): string {
-  if (!stats) return '';
-  return `
-    <div class="chart-card types-chart">
-      <h2 class="chart-title">Events by Type</h2>
-      <div class="type-bars">
-        ${stats.events_by_type.map(item => `
-          <div class="type-bar-item">
-            <div class="type-info">
-              <span class="type-emoji">${getEventTypeEmoji(item.type)}</span>
-              <span class="type-name">${item.type}</span>
-              <span class="type-count">${formatNumber(item.count)}</span>
-            </div>
-            <div class="type-bar-container">
-              <div 
-                class="type-bar" 
-                style="width: ${getTypePercentage(item.count)}%; background-color: ${getEventTypeColor(item.type)};"
-              ></div>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
-}
-
-function renderTimelineChart(): string {
-  if (!stats) return '';
-  return `
-    <div class="chart-card timeline-chart">
-      <h2 class="chart-title">30-Day Timeline</h2>
-      <div class="timeline-container">
-        <div class="timeline-bars">
-          ${stats.events_by_day.map(day => `
-            <div 
-              class="timeline-bar-wrapper"
-              title="${formatDate(day.date)}: ${day.count} events"
-            >
-              <div 
-                class="timeline-bar" 
-                style="height: ${getBarHeight(day.count)}%;"
-              ></div>
-              <span class="timeline-label">${formatDate(day.date)}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function getSocialClickColor(type: string): string {
-  const colors: Record<string, string> = {
-    'social_twitter': '#1da1f2',
-    'social_github': '#333333',
-    'social_linkedin': '#0077b5',
-    'social_email': '#ea4335',
-    'social_website': '#4ecdc4',
-    'social_bluesky': '#0085ff',
-  };
-  return colors[type.toLowerCase()] || '#6c5ce7';
-}
-
-function getSocialClickEmoji(type: string): string {
-  const emojis: Record<string, string> = {
-    'social_twitter': '🐦',
-    'social_github': '🐙',
-    'social_linkedin': '💼',
-    'social_email': '📧',
-    'social_website': '🌐',
-    'social_bluesky': '🦋',
-  };
-  return emojis[type.toLowerCase()] || '🔗';
-}
-
-function getSocialClickPercentage(count: number): number {
-  if (!stats?.social_clicks_by_type.length) return 0;
-  const max = Math.max(...stats.social_clicks_by_type.map(s => s.count));
-  return max > 0 ? (count / max) * 100 : 0;
-}
-
-function renderSocialClicksChart(): string {
-  if (!stats?.social_clicks_by_type.length) return '';
-  return `
-    <section class="social-clicks-section">
-      <div class="chart-card social-clicks-chart">
-        <h2 class="chart-title">Social Clicks by Type</h2>
-        <div class="type-bars">
-          ${stats.social_clicks_by_type.map(item => `
-            <div class="type-bar-item">
-              <div class="type-info">
-                <span class="type-emoji">${getSocialClickEmoji(item.type)}</span>
-                <span class="type-name">${item.type.replace('social_', '')}</span>
-                <span class="type-count">${formatNumber(item.count)}</span>
-                ${item.type === 'social_onlyfans' ? '<span class="type-count-extra" title="from zaap.bio">+4329</span>' : ''}
-              </div>
-              <div class="type-bar-container">
-                <div
-                  class="type-bar"
-                  style="width: ${getSocialClickPercentage(item.count)}%; background-color: ${getSocialClickColor(item.type)};"
-                ></div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    </section>
-  `;
-}
-
-function slugToTitle(slug: string): string {
-  return slug
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
-function renderBlogPostViews(): string {
-  if (!stats) return '';
-  const views = stats.blog_post_views ?? [];
-  const maxCount = views.length > 0 ? Math.max(...views.map(v => v.count)) : 1;
-
-  return `
-    <section class="blog-views-section">
-      <h2 class="section-title">Blog Post Views</h2>
-      ${views.length === 0
-        ? '<p class="no-data-msg">No blog post clicks recorded yet.</p>'
-        : `<div class="blog-views-list">
-          ${views.map(post => `
-            <div class="blog-view-item">
-              <div class="blog-view-info">
-                <span class="blog-view-title">${slugToTitle(post.slug)}</span>
-                <span class="blog-view-slug">${post.slug}</span>
-              </div>
-              <div class="blog-view-bar-container">
-                <div
-                  class="blog-view-bar"
-                  style="width: ${maxCount > 0 ? (post.count / maxCount) * 100 : 0}%;"
-                ></div>
-              </div>
-              <span class="blog-view-count">${formatNumber(post.count)}</span>
-            </div>
-          `).join('')}
-        </div>`
-      }
-    </section>
-  `;
-}
-
-function renderBlogPostVisits(): string {
-  if (!stats) return '';
-  const visits = stats.blog_post_visits ?? [];
-  const maxCount = visits.length > 0 ? Math.max(...visits.map(v => v.count)) : 1;
-
-  return `
-    <section class="blog-views-section">
-      <h2 class="section-title">Blog Post Visits</h2>
-      ${visits.length === 0
-        ? '<p class="no-data-msg">No blog post visits recorded yet.</p>'
-        : `<div class="blog-views-list">
-          ${visits.map(post => `
-            <div class="blog-view-item">
-              <div class="blog-view-info">
-                <span class="blog-view-title">${slugToTitle(post.slug)}</span>
-                <span class="blog-view-slug">${post.slug}</span>
-              </div>
-              <div class="blog-view-bar-container">
-                <div
-                  class="blog-view-bar blog-visit-bar"
-                  style="width: ${maxCount > 0 ? (post.count / maxCount) * 100 : 0}%;"
-                ></div>
-              </div>
-              <span class="blog-view-count">${formatNumber(post.count)}</span>
-            </div>
-          `).join('')}
-        </div>`
-      }
-    </section>
-  `;
-}
-
-function formatReferrerUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-    return parsed.hostname + (parsed.pathname !== '/' ? parsed.pathname : '');
-  } catch {
-    return url;
-  }
-}
-
-function renderTopReferrers(): string {
-  if (!stats) return '';
-  const referrers = stats.top_referrers ?? [];
-  const maxCount = referrers.length > 0 ? Math.max(...referrers.map(r => r.count)) : 1;
-
-  return `
-    <section class="blog-views-section">
-      <h2 class="section-title">Top Referrers</h2>
-      ${referrers.length === 0
-        ? '<p class="no-data-msg">No referrals recorded yet.</p>'
-        : `<div class="blog-views-list">
-          ${referrers.map(ref => `
-            <div class="blog-view-item">
-              <div class="blog-view-info">
-                <span class="blog-view-title">${formatReferrerUrl(ref.url)}</span>
-                <span class="blog-view-slug">${ref.url}</span>
-              </div>
-              <div class="blog-view-bar-container">
-                <div
-                  class="blog-view-bar referrer-bar"
-                  style="width: ${maxCount > 0 ? (ref.count / maxCount) * 100 : 0}%;"
-                ></div>
-              </div>
-              <span class="blog-view-count">${formatNumber(ref.count)}</span>
-            </div>
-          `).join('')}
-        </div>`
-      }
-    </section>
-  `;
-}
-
-function renderRecentEvents(): string {
-  if (!stats) return '';
-  return `
-    <section class="recent-events-section">
-      <h2 class="section-title">Recent Events</h2>
-      <div class="events-table-container">
-        <table class="events-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Type</th>
-              <th>Data</th>
-              <th>IP</th>
-              <th>User Agent</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${stats.recent_events.map(event => `
-              <tr class="event-row">
-                <td class="time-cell">${formatDateTime(event.created_at)}</td>
-                <td class="type-cell">
-                  <span 
-                    class="type-badge"
-                    style="background-color: ${getEventTypeColor(event.event_type)};"
-                  >
-                    ${getEventTypeEmoji(event.event_type)} ${event.event_type}
-                  </span>
-                </td>
-                <td class="data-cell">
-                  ${event.event_data 
-                    ? `<span class="data-value">${event.event_data}</span>` 
-                    : '<span class="no-data">—</span>'}
-                </td>
-                <td class="ip-cell">
-                  <code class="ip-address">${event.ip_address || '—'}</code>
-                </td>
-                <td class="ua-cell">
-                  <span class="ua-text" title="${event.user_agent || ''}">
-                    ${event.user_agent || '—'}
-                  </span>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `;
-}
-
-function fmtSeconds(s: number | null | undefined): string {
+function duration(s: number | null | undefined): string {
   if (s == null) return '–';
-  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
 }
 
-function barList(title: string, rows: Row[], opts: { empty?: string; label?: (r: Row) => string; extra?: (r: Row) => string } = {}): string {
-  const max = rows.length ? Math.max(...rows.map((r) => r.views)) : 1;
+function when(iso: string | null): string {
+  if (!iso) return '–';
+  const d = new Date(iso);
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 24 * 60) return `${Math.round(mins / 60)}h ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+async function load(): Promise<void> {
+  if (!memToken) { state = 'locked'; render(); return; }
+  const headers = { Authorization: `Bearer ${memToken}` };
+  try {
+    const [t, s] = await Promise.all([
+      fetch(`${API_URL}/api/admin/traffic?days=${days}`, { headers }),
+      fetch(`${API_URL}/api/admin/stats`, { headers }),
+    ]);
+    if (t.status === 401 || s.status === 401) {
+      state = 'locked'; message = "That token didn't work."; render(); return;
+    }
+    if (t.status === 503) throw new Error('ADMIN_TOKEN isn’t set on the API service yet.');
+    if (!t.ok) throw new Error(`The API returned ${t.status}.`);
+    traffic = await t.json();
+    stats = s.ok ? await s.json() : null;
+    state = 'ready'; message = ''; updated = new Date();
+  } catch (e) {
+    state = 'error';
+    message = e instanceof TypeError ? 'Couldn’t reach the API.' : (e as Error).message;
+  }
+  render();
+}
+
+// ---- pieces ----
+
+/** A ranked list: label on the left, numbers on the right, a faint bar behind each row. */
+function table(id: string, title: string, rows: { label: string; value: number; cols?: string[]; detail?: string; note?: string }[],
+               opts: { head?: string[]; limit?: number; empty?: string; phoneHides?: number[] } = {}): string {
+  const limit = opts.limit ?? 8;
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  const all = shown.has(id);
+  const visible = all ? rows : rows.slice(0, limit);
+  const head = opts.head ?? ['Views'];
+  // Columns (by index into head) that are dropped on narrow screens
+  const cls = (i: number) => (opts.phoneHides?.includes(i) ? 'col opt' : 'col');
   return `
-    <section class="blog-views-section">
-      <h2 class="section-title">${title}</h2>
-      ${rows.length === 0
-        ? `<p class="no-data-msg">${opts.empty ?? 'Nothing yet.'}</p>`
-        : `<div class="blog-views-list">${rows.map((r) => `
-          <div class="blog-view-item">
-            <div class="blog-view-info">
-              <span class="blog-view-title">${esc(opts.label ? opts.label(r) : r.key)}</span>
-              <span class="blog-view-slug">${formatNumber(r.visitors)} visitors${opts.extra ? ' · ' + opts.extra(r) : ''}</span>
-            </div>
-            <div class="blog-view-bar-container"><div class="blog-view-bar" style="width: ${(r.views / max) * 100}%;"></div></div>
-            <span class="blog-view-count">${formatNumber(r.views)}</span>
-          </div>`).join('')}</div>`}
+    <section class="panel">
+      <div class="panel-head">
+        <h2>${title}</h2>
+        ${head.map((h, i) => `<span class="${cls(i)}">${h}</span>`).join('')}
+      </div>
+      ${rows.length === 0 ? `<p class="empty">${opts.empty ?? 'Nothing yet.'}</p>` : ''}
+      <ol class="rows">
+        ${visible.map((r) => {
+          const line = `
+            <span class="bar" style="width:${(r.value / max) * 100}%"></span>
+            <span class="label" title="${r.label}">${r.label}${r.note ? ` <span class="muted">${r.note}</span>` : ''}</span>
+            ${(r.cols ?? []).map((c, i) => `<span class="${cls(i)}">${c}</span>`).join('')}
+            <span class="col">${num(r.value)}</span>`;
+          return r.detail
+            ? `<li><details><summary class="row">${line}</summary>${r.detail}</details></li>`
+            : `<li class="row">${line}</li>`;
+        }).join('')}
+      </ol>
+      ${rows.length > limit ? `<button class="more" data-toggle="${id}">${all ? 'Show less' : `Show all ${rows.length}`}</button>` : ''}
     </section>`;
 }
 
-function renderTraffic(): string {
-  if (!traffic) return '';
-  const t = traffic;
-  const maxDay = t.daily.length ? Math.max(...t.daily.map((d) => d.views)) : 1;
-  const range = [7, 30, 90, 365].map((d) =>
-    `<button class="refresh-btn ${d === trafficDays ? 'active' : ''}" onclick="window.setTrafficDays(${d})">${d === 365 ? '1y' : d + 'd'}</button>`).join('');
-  return `
-    <section class="traffic-header">
-      <h2 class="section-title">🌍 Traffic</h2>
-      <div class="header-actions">${range}</div>
-    </section>
-    <section class="metrics-grid">
-      ${[['👁️', t.totals.views, 'Page views'], ['🧑', t.totals.visitors, 'Visitors'], ['🗂️', t.totals.sessions, 'Sessions'],
-         ['⏱️', fmtSeconds(t.totals.avg_seconds), 'Avg time on page'], ['🤖', t.totals.bot_views_excluded, 'Bot views hidden']]
-        .map(([icon, v, label]) => `
-        <div class="metric-card">
-          <div class="metric-icon">${icon}</div>
-          <div class="metric-content">
-            <div class="metric-value">${typeof v === 'number' ? formatNumber(v) : v}</div>
-            <div class="metric-label">${label}</div>
-          </div>
-        </div>`).join('')}
-    </section>
-    <section class="chart-card">
-      <h3 class="chart-title">Views per day</h3>
-      <div class="timeline-container"><div class="timeline-bars">
-        ${t.daily.map((d) => `
-          <div class="timeline-bar-wrapper" title="${d.date}: ${d.views} views, ${d.visitors} visitors">
-            <div class="timeline-bar" style="height: ${(d.views / maxDay) * 100}%;"></div>
-            <span class="timeline-label">${formatDate(d.date)}</span>
-          </div>`).join('')}
-      </div></div>
-    </section>
-    ${barList('Pages', t.pages, { extra: (r) => `${fmtSeconds(r.avg_seconds)} avg · ${r.avg_scroll ?? '–'}% scrolled` })}
-    ${barList('Where they came from', t.sources, { empty: 'No sources yet.' })}
-    <section class="recent-events-section">
-      <h2 class="section-title">Which pages, from where</h2>
-      <div class="events-table-container"><table class="events-table">
-        <thead><tr><th>Page</th><th>Source</th><th>Views</th></tr></thead>
-        <tbody>${t.page_sources.map((r) => `<tr class="event-row"><td class="data-cell">${esc(r.path)}</td><td class="data-cell">${esc(r.source)}</td><td>${formatNumber(r.views)}</td></tr>`).join('')}</tbody>
-      </table></div>
-    </section>
-    ${t.campaigns.length ? barList('Campaigns (utm_campaign)', t.campaigns) : ''}
-    ${barList('Countries', t.countries)}
-    ${barList('Cities', t.places, { label: (r) => r.key.replace(/\?, /g, '').replace(/, \?$/, '') })}
-    <section class="charts-row">
-      ${barList('Devices', t.devices)}
-      ${barList('Browsers', t.browsers)}
-      ${barList('Operating systems', t.os)}
-    </section>
-    <section class="recent-events-section">
-      <h2 class="section-title">Latest page views</h2>
-      <div class="events-table-container"><table class="events-table">
-        <thead><tr><th>Time</th><th>Page</th><th>Source</th><th>Where</th><th>Device</th><th>Visitor</th></tr></thead>
-        <tbody>${t.recent.map((r) => `<tr class="event-row">
-          <td class="time-cell">${formatDateTime(r.time)}</td>
-          <td class="data-cell" title="${esc(r.title)}">${esc(r.path)}</td>
-          <td class="data-cell">${esc(r.source)}</td>
-          <td class="data-cell">${esc(r.place ?? '–')}</td>
-          <td class="data-cell">${esc([r.device, r.browser].filter(Boolean).join(' · '))}</td>
-          <td class="data-cell"><code>${esc(r.visitor)}</code></td></tr>`).join('')}</tbody>
-      </table></div>
-    </section>
-    <h2 class="section-title all-events-title">📊 All events</h2>
-  `;
+function rowsOf(list: Row[], label = (r: Row) => r.key) {
+  return list.map((r) => ({ label: esc(label(r)), value: r.views, cols: [num(r.visitors)] }));
 }
 
-function renderTokenForm(): string {
+function chart(t: Traffic): string {
+  if (!t.daily.length) return '';
+  // The API skips days with no views; fill them in so the bars line up with the calendar
+  const DAY = 86400000;
+  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  const byDate = new Map(t.daily.map((d) => [d.date, d]));
+  const end = Date.parse(iso(Date.now()) + 'T00:00:00Z');
+  const start = t.days ? end - (t.days - 1) * DAY : Date.parse(t.daily[0].date + 'T00:00:00Z');
+  const filled: { date: string; views: number; visitors: number }[] = [];
+  for (let ms = start; ms <= end; ms += DAY) filled.push(byDate.get(iso(ms)) ?? { date: iso(ms), views: 0, visitors: 0 });
+
+  // Past ~4 months, daily bars get too thin to read, so add them up by month
+  const monthly = filled.length > 120;
+  const bars: { key: string; label: string; views: number; visitors?: number }[] = [];
+  for (const d of filled) {
+    const key = monthly ? d.date.slice(0, 7) : d.date;
+    const last = bars[bars.length - 1];
+    if (last?.key === key) last.views += d.views;
+    else bars.push({ key, label: '', views: d.views, visitors: monthly ? undefined : d.visitors });
+  }
+  const fmt = (key: string) => new Date((monthly ? key + '-01' : key) + 'T00:00:00Z').toLocaleDateString('en-US',
+    monthly ? { month: 'short', year: 'numeric', timeZone: 'UTC' } : { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const max = Math.max(1, ...bars.map((d) => d.views));
+  const unit = monthly ? 'month' : 'day';
   return `
-    <form class="token-form" onsubmit="window.saveToken(event)">
-      <p>Enter the admin token (the <code>ADMIN_TOKEN</code> set on the API).</p>
-      ${error ? `<p class="no-data-msg">${esc(error)}</p>` : ''}
-      <input type="password" name="token" autocomplete="current-password" placeholder="Admin token" autofocus>
-      <button class="retry-btn" type="submit">Unlock</button>
-    </form>`;
+    <section class="chart" aria-label="Views per ${unit}">
+      <div class="chart-top"><span>Views per ${unit}</span><span>peak ${num(max)}</span></div>
+      <div class="bars">
+        ${bars.map((d) => `<span class="day" title="${fmt(d.key)}: ${num(d.views)} views${d.visitors != null ? `, ${num(d.visitors)} visitors` : ''}"><i style="height:${(d.views / max) * 100}%"></i></span>`).join('')}
+      </div>
+      <div class="chart-axis"><span>${fmt(bars[0].key)}</span><span>${fmt(bars[bars.length - 1].key)}</span></div>
+    </section>`;
 }
 
-function renderDashboard(): string {
+function pageSources(t: Traffic, path: string): string {
+  const rows = t.page_sources.filter((r) => r.path === path);
+  if (!rows.length) return '';
+  return `<ul class="sub">${rows.map((r) => `<li><span>${esc(r.source)}</span><span class="col">${num(r.views)}</span></li>`).join('')}</ul>`;
+}
+
+function clicks(): string {
+  if (!stats?.social_clicks_by_type.length) return '';
+  const rows = stats.social_clicks_by_type
+    .map((r) => {
+      const extra = r.type === 'social_onlyfans' ? ZAAP_ONLYFANS_CLICKS : 0;
+      const name = esc(r.type.replace(/^social_/, ''));
+      return { label: name, value: r.count + extra, note: extra ? `incl. ${num(extra)} from zaap.bio` : undefined };
+    })
+    .sort((a, b) => b.value - a.value);
+  return table('clicks', 'Link clicks', rows, { head: ['Clicks'] });
+}
+
+function raw(): string {
+  if (!stats) return '';
+  const types = [...stats.events_by_type].sort((a, b) => b.count - a.count);
   return `
-    ${renderTraffic()}
-    ${renderMetrics()}
-    <section class="charts-row">
-      ${renderTypesChart()}
-      ${renderTimelineChart()}
+    <details class="raw">
+      <summary>Raw events <span class="muted">${num(stats.total_events)} all time</span></summary>
+      <table class="grid">
+        <thead><tr><th>Type</th><th class="n">Count</th></tr></thead>
+        <tbody>${types.map((r) => `<tr><td>${esc(r.type)}</td><td class="n">${num(r.count)}</td></tr>`).join('')}</tbody>
+      </table>
+      <h3>Latest 50</h3>
+      <div class="scroll"><table class="grid">
+        <thead><tr><th>When</th><th>Type</th><th>Data</th><th>IP</th><th>User agent</th></tr></thead>
+        <tbody>${stats.recent_events.map((e) => `<tr>
+          <td class="nowrap">${when(e.created_at)}</td><td>${esc(e.event_type)}</td><td>${esc(e.event_data ?? '')}</td>
+          <td class="mono">${esc(e.ip_address ?? '')}</td><td class="clip" title="${esc(e.user_agent)}">${esc(e.user_agent ?? '')}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </details>`;
+}
+
+function dashboard(t: Traffic): string {
+  const place = (r: Row) => r.key.replace(/\?, /g, '').replace(/, \?$/, '');
+  return `
+    <section class="totals">
+      <div><b>${num(t.totals.views)}</b><span>Page views</span></div>
+      <div><b>${num(t.totals.visitors)}</b><span>Visitors</span></div>
+      <div><b>${num(t.totals.sessions)}</b><span>Visits</span></div>
+      <div><b>${duration(t.totals.avg_seconds)}</b><span>Avg. time on page</span></div>
     </section>
-    ${renderSocialClicksChart()}
-    ${renderBlogPostViews()}
-    ${renderBlogPostVisits()}
-    ${renderTopReferrers()}
-    ${renderRecentEvents()}
-  `;
+    ${chart(t)}
+    ${table('pages', 'Pages', t.pages.map((r) => ({
+      label: esc(r.key), value: r.views,
+      cols: [num(r.visitors), duration(r.avg_seconds), r.avg_scroll == null ? '–' : `${r.avg_scroll}%`],
+      detail: pageSources(t, r.key),
+    })), { head: ['Visitors', 'Time', 'Scroll', 'Views'], limit: 10, phoneHides: [1, 2] })}
+    <div class="two">
+      ${table('sources', 'Sources', rowsOf(t.sources), { head: ['Visitors', 'Views'] })}
+      ${table('countries', 'Countries', rowsOf(t.countries), { head: ['Visitors', 'Views'] })}
+    </div>
+    <div class="two">
+      ${table('places', 'Cities', rowsOf(t.places, place), { head: ['Visitors', 'Views'] })}
+      ${table('devices', 'Devices', rowsOf(t.devices), { head: ['Visitors', 'Views'] })}
+    </div>
+    <div class="two">
+      ${table('browsers', 'Browsers', rowsOf(t.browsers), { head: ['Visitors', 'Views'], limit: 5 })}
+      ${table('os', 'Operating systems', rowsOf(t.os), { head: ['Visitors', 'Views'], limit: 5 })}
+    </div>
+    ${t.campaigns.length ? table('campaigns', 'Campaigns', rowsOf(t.campaigns), { head: ['Visitors', 'Views'] }) : ''}
+    ${clicks()}
+    <section class="panel">
+      <div class="panel-head"><h2>Latest visits</h2></div>
+      <div class="scroll"><table class="grid">
+        <thead><tr><th>When</th><th>Page</th><th>From</th><th>Where</th><th>Device</th></tr></thead>
+        <tbody>${t.recent.slice(0, shown.has('recent') ? 50 : 15).map((r) => `<tr>
+          <td class="nowrap">${when(r.time)}</td>
+          <td title="${esc(r.title)}">${esc(r.path)}</td>
+          <td>${esc(r.source)}</td>
+          <td>${esc(r.place ?? '–')}</td>
+          <td class="nowrap">${esc([r.device, r.browser].filter(Boolean).join(', '))}</td></tr>`).join('')}</tbody>
+      </table></div>
+      ${t.recent.length > 15 ? `<button class="more" data-toggle="recent">${shown.has('recent') ? 'Show less' : `Show ${t.recent.length}`}</button>` : ''}
+    </section>
+    ${t.totals.bot_views_excluded ? `<p class="footnote">${num(t.totals.bot_views_excluded)} bot views left out.</p>` : ''}
+    ${raw()}`;
 }
 
 function render(): void {
   const app = document.getElementById('admin-app');
   if (!app) return;
+  // Keep expanded rows and the raw-events section open across refreshes
+  const open = new Set([...app.querySelectorAll('details[open]')].map((d) => d.getAttribute('data-k')));
 
-  const lastUpdatedStr = lastUpdated ? formatTime(lastUpdated) : '';
-  
+  let body = '';
+  if (state === 'locked') {
+    body = `
+      <form class="lock" id="lock">
+        <label for="token">Admin token</label>
+        <input id="token" type="password" autocomplete="current-password" autofocus>
+        <button type="submit">Unlock</button>
+        ${message ? `<p class="err">${esc(message)}</p>` : '<p class="muted">The <code>ADMIN_TOKEN</code> set on the API service.</p>'}
+      </form>`;
+  } else if (state === 'error' && !traffic) {
+    body = `<p class="err">${esc(message)} <button class="link" data-act="refresh">Try again</button></p>`;
+  } else if (traffic) {
+    body = dashboard(traffic);
+  } else {
+    body = '<p class="muted">Loading…</p>';
+  }
+
   app.innerHTML = `
-    <div class="admin-container">
-      <header class="admin-header">
-        <div class="header-content">
-          <h1 class="title">📊 Slurp Analytics</h1>
-          <p class="subtitle">Real-time event tracking dashboard</p>
-        </div>
-        <div class="header-actions">
-          ${lastUpdated ? `<span class="last-updated">Updated ${lastUpdatedStr}</span>` : ''}
-          <button class="refresh-btn ${loading ? 'loading' : ''}" onclick="window.retryLoad()" ${loading ? 'disabled' : ''}>
-            <span class="refresh-icon ${loading ? 'spinning' : ''}">⟳</span>
-            Refresh
-          </button>
-        </div>
+    <main>
+      <header>
+        <h1>Analytics</h1>
+        <button class="link theme" data-act="theme">${theme() === 'dark' ? 'Light mode' : 'Dark mode'}</button>
+        ${state === 'locked' ? '' : `
+        <nav class="range">${RANGES.map(([d, l]) => `<button data-days="${d}" ${d === days ? 'aria-current="true"' : ''}>${l}</button>`).join('')}</nav>
+        <span class="status">${state === 'error' ? `<span class="err">${esc(message)}</span>` : updated ? `Updated ${updated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}
+          <button class="link" data-act="refresh">Refresh</button></span>`}
       </header>
-      
-      <div class="dashboard">
-        ${needsToken ? renderTokenForm() : ''}
-        ${!needsToken && loading && !stats ? renderLoadingState() : ''}
-        ${!needsToken && error && !stats ? renderErrorState() : ''}
-        ${!needsToken && stats ? renderDashboard() : ''}
-      </div>
-    </div>
-  `;
+      ${body}
+    </main>`;
+
+  // Tag each <details> with a stable key, then reopen the ones that were open
+  app.querySelectorAll('details').forEach((d, i) => {
+    const k = d.classList.contains('raw') ? 'raw' : d.querySelector('.label')?.textContent ?? String(i);
+    d.setAttribute('data-k', k);
+    if (open.has(k)) d.open = true;
+  });
 }
 
-// Expose retry function globally
-(window as any).retryLoad = loadStats;
-(window as any).setTrafficDays = (d: number) => { trafficDays = d; loadStats(); };
-(window as any).saveToken = (e: Event) => {
+document.addEventListener('click', (e) => {
+  const el = (e.target as HTMLElement).closest('button');
+  if (!el) return;
+  if (el.dataset.days) { days = Number(el.dataset.days); load(); render(); }
+  else if (el.dataset.toggle) { const k = el.dataset.toggle; shown.has(k) ? shown.delete(k) : shown.add(k); render(); }
+  else if (el.dataset.act === 'refresh') load();
+  else if (el.dataset.act === 'theme') {
+    const next = theme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem(THEME_KEY, next); } catch { /* lasts for this page only */ }
+    render();
+  }
+});
+
+document.addEventListener('submit', (e) => {
+  if ((e.target as HTMLElement).id !== 'lock') return;
   e.preventDefault();
-  const v = ((e.target as HTMLFormElement).elements.namedItem('token') as HTMLInputElement).value.trim();
-  try { localStorage.setItem(TOKEN_KEY, v); } catch { /* private mode: token lasts for this page only */ }
-  error = null; loading = true; render(); loadStats();
-};
+  setToken((document.getElementById('token') as HTMLInputElement).value.trim());
+  message = ''; state = 'loading'; render(); load();
+});
 
-// Initial load
+// Keep the toggle's label right if the system theme flips while you're here
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => render());
+
+// Refresh when you come back to the tab, and every 2 minutes while it's open
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state === 'ready') load(); });
+setInterval(() => { if (!document.hidden && state === 'ready') load(); }, 120000);
+
 render();
-loadStats();
-
-// Auto-refresh every 30 seconds
-setInterval(loadStats, 30000);
+load();
