@@ -3,8 +3,8 @@
 
 - feed.xml     RSS feed
 - sitemap.xml  for search engines (robots.txt points at it)
-- the post, ride and urbex lists inside index.html, rides/index.html and
-  urbex/index.html, written as
+- the post list in index.html, and the ride and urbex lists in rides/index.html
+  and urbex/index.html, written as
   plain HTML between <!-- posts:start --> / <!-- posts:end --> style markers so
   crawlers and link previews see them without running JavaScript
 
@@ -189,22 +189,6 @@ def urbex_html(spot, base, indent):
     return "\n".join(lines)
 
 
-def ride_tile(ride, base, indent):
-    """A cover-photo tile for the homepage rides row."""
-    e = lambda s: html.escape(s, quote=True)
-    pad = " " * indent
-    meta = pretty_date(ride["date"])
-    if ride.get("distanceMi"):
-        meta += f" · {int(ride['distanceMi'] + 0.5)} mi"
-    lines = [f'{pad}<a class="urbex-tile ride-tile" href="{base}rides/{e(ride["slug"])}.html" data-slug="{e(ride["slug"])}">']
-    if ride.get("cover"):
-        lines.append(f'{pad}    <img src="{base}{e(ride["cover"])}" alt="" loading="lazy">')
-    lines.append(f'{pad}    <span class="urbex-tile-text"><span class="urbex-tile-title">{e(ride["title"])}</span>'
-                 f'<span class="urbex-tile-meta">{meta}</span></span>')
-    lines.append(f'{pad}</a>')
-    return "\n".join(lines)
-
-
 def urbex_tile(spot, base, indent):
     """A cover-photo tile for the homepage gallery."""
     e = lambda s: html.escape(s, quote=True)
@@ -271,13 +255,6 @@ def render_lists(posts, rides, urbex):
     index = ROOT / "index.html"
     text = index.read_text()
     text = fill(text, "posts", "\n".join(post_html(p, 12) for p in posts))
-    text = fill(text, "rides", '            <div class="urbex-grid">\n' + "\n".join(ride_tile(r, "", 16) for r in rides[:3]) + "\n            </div>")
-    # The homepage rides section only shows once there's a ride
-    text = re.sub(r'<section id="rides-section"( hidden)?>',
-                  '<section id="rides-section">' if rides else '<section id="rides-section" hidden>', text)
-    text = fill(text, "urbex", '            <div class="urbex-grid">\n' + "\n".join(urbex_tile(u, "", 16) for u in urbex[:6]) + "\n            </div>")
-    text = re.sub(r'<section id="urbex-section"( hidden)?>',
-                  '<section id="urbex-section">' if urbex else '<section id="urbex-section" hidden>', text)
     index.write_text(text)
 
     rides_index = ROOT / "rides" / "index.html"

@@ -1111,6 +1111,20 @@ hr {
     }
 }
 
+/* Homepage: rides and urbex get a link each, so the page stays about the writing */
+.more-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.75rem;
+    margin: 2.25rem 0 0;
+}
+
+/* Emoji sits outside the underline */
+.more-links a span {
+    display: inline-block;
+    margin-right: 0.4em;
+}
+
 /* Homepage section headers: title on the left, "all" link on the right */
 .section-head {
     display: flex;

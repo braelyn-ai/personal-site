@@ -133,62 +133,10 @@
             <!-- posts:end -->
         </div>
 
-        <section id="rides-section">
-            <div class="section-head"><h2><span class="section-emoji" aria-hidden="true">🏍️</span> Rides</h2><a href="rides/">All rides &amp; the map →</a></div>
-            <div id="rides-container">
-            <!-- rides:start -->
-            <div class="urbex-grid">
-                <a class="urbex-tile ride-tile" href="rides/japan-izu-fuji-venus-line.html" data-slug="japan-izu-fuji-venus-line">
-                    <img src="assets/rides/japan-izu-fuji-venus-line/07.jpg" alt="" loading="lazy">
-                    <span class="urbex-tile-text"><span class="urbex-tile-title">Tokyo to Izu, Fuji and the Venus Line</span><span class="urbex-tile-meta">Oct 16, 2026 · 602 mi</span></span>
-                </a>
-                <a class="urbex-tile ride-tile" href="rides/riding-through-the-uae.html" data-slug="riding-through-the-uae">
-                    <img src="assets/rides/riding-through-the-uae/03.jpg" alt="" loading="lazy">
-                    <span class="urbex-tile-text"><span class="urbex-tile-title">Riding through the UAE</span><span class="urbex-tile-meta">Feb 21, 2026 · 83 mi</span></span>
-                </a>
-                <a class="urbex-tile ride-tile" href="rides/baja-on-klrs.html" data-slug="baja-on-klrs">
-                    <img src="assets/rides/baja-on-klrs/10.jpg" alt="" loading="lazy">
-                    <span class="urbex-tile-text"><span class="urbex-tile-title">Baja on KLRs</span><span class="urbex-tile-meta">Jan 1, 2026 · 579 mi</span></span>
-                </a>
-            </div>
-            <!-- rides:end -->
-            </div>
-        </section>
-
-        <section id="urbex-section">
-            <div class="section-head"><h2><span class="section-emoji" aria-hidden="true">🏚️</span> Urban Exploration</h2><a href="urbex/">All spots &amp; the map →</a></div>
-            <div id="urbex-container">
-            <!-- urbex:start -->
-            <div class="urbex-grid">
-                <a class="urbex-tile" href="urbex/wittstock.html" data-slug="wittstock">
-                    <img src="assets/urbex/wittstock/35.jpg" alt="" loading="lazy">
-                    <span class="urbex-tile-text"><span class="urbex-tile-title">Wittstock</span><span class="urbex-tile-meta">Jun 24, 2026</span></span>
-                </a>
-                <a class="urbex-tile" href="urbex/fuerstenberg.html" data-slug="fuerstenberg">
-                    <img src="assets/urbex/fuerstenberg/18.jpg" alt="" loading="lazy">
-                    <span class="urbex-tile-text"><span class="urbex-tile-title">Fürstenberg</span><span class="urbex-tile-meta">Jun 24, 2026</span></span>
-                </a>
-                <a class="urbex-tile" href="urbex/pacific-steel.html" data-slug="pacific-steel">
-                    <img src="assets/urbex/pacific-steel/31.jpg" alt="" loading="lazy">
-                    <span class="urbex-tile-text"><span class="urbex-tile-title">Pacific Steel Casting</span><span class="urbex-tile-meta">Dec 7, 2025</span></span>
-                </a>
-                <a class="urbex-tile" href="urbex/ferry-point.html" data-slug="ferry-point">
-                    <img src="assets/urbex/ferry-point/14.jpg" alt="" loading="lazy">
-                    <span class="urbex-tile-text"><span class="urbex-tile-title">Ferry Point</span><span class="urbex-tile-meta">Dec 7, 2025</span></span>
-                </a>
-                <a class="urbex-tile" href="urbex/point-molate.html" data-slug="point-molate">
-                    <img src="assets/urbex/point-molate/09.jpg" alt="" loading="lazy">
-                    <span class="urbex-tile-text"><span class="urbex-tile-title">Point Molate</span><span class="urbex-tile-meta">Dec 7, 2025</span></span>
-                </a>
-                <a class="urbex-tile" href="urbex/teufelsberg.html" data-slug="teufelsberg">
-                    <img src="assets/urbex/teufelsberg/13.jpg" alt="" loading="lazy">
-                    <span class="urbex-badge urbex-commercialized">commercialized</span>
-                    <span class="urbex-tile-text"><span class="urbex-tile-title">Teufelsberg</span><span class="urbex-tile-meta">Aug 18, 2025</span></span>
-                </a>
-            </div>
-            <!-- urbex:end -->
-            </div>
-        </section>
+        <nav class="more-links" aria-label="More from me">
+            <a href="rides/" data-section="rides"><span aria-hidden="true">🏍️</span>Motorcycle rides</a>
+            <a href="urbex/" data-section="urbex"><span aria-hidden="true">🏚️</span>Urban exploration</a>
+        </nav>
     </main>
 
     <footer>
@@ -208,15 +156,12 @@
             });
         });
 
-        // Post, ride and urbex lists are baked into this page by generate_feed.py
+        // The post list is baked into this page by generate_feed.py
         document.querySelectorAll('.post-link').forEach(link => {
             link.addEventListener('click', () => slurp('blog_post_click', link.dataset.slug));
         });
-        document.querySelectorAll('.ride-tile').forEach(link => {
-            link.addEventListener('click', () => slurp('blog_ride_click', link.dataset.slug));
-        });
-        document.querySelectorAll('.urbex-tile:not(.ride-tile)').forEach(link => {
-            link.addEventListener('click', () => slurp('blog_urbex_click', link.dataset.slug));
+        document.querySelectorAll('.more-links a').forEach(link => {
+            link.addEventListener('click', () => slurp('blog_section_click', link.dataset.section));
         });
     </script>
 </body>
