@@ -3,12 +3,14 @@
 
 - feed.xml     RSS feed
 - sitemap.xml  for search engines (robots.txt points at it)
-- the post, ride and urbex lists inside index.html, rides/index.html and
-  urbex/index.html, written as
+- the latest posts and notes in index.html, every post in posts/index.html,
+  every note on the wall in wall/index.html, and the ride and urbex lists in
+  rides/index.html and urbex/index.html, written as
   plain HTML between <!-- posts:start --> / <!-- posts:end --> style markers so
   crawlers and link previews see them without running JavaScript
 
-Run it after editing posts.json (new_ride.py and new_urbex.py run it for you).
+Run it after editing posts.json or notes.json (new_ride.py, new_urbex.py and
+new_note.py run it for you).
 """
 
 import html
@@ -37,9 +39,16 @@ def load_section(name):
 
 
 def load_entries():
-    with open(ROOT / "posts.json") as f:
-        posts = [{**p, "section": "posts"} for p in json.load(f)]
-    return posts, load_section("rides"), load_section("urbex")
+    return load_section("posts"), load_section("rides"), load_section("urbex")
+
+
+def load_notes():
+    """notes.json (the notes on the wall), newest first. Notes from the same day keep their order in the file."""
+    path = ROOT / "notes.json"
+    if not path.exists():
+        return []
+    with open(path) as f:
+        return sorted(json.load(f), key=lambda n: n["date"], reverse=True)
 
 
 def url_for(entry):
@@ -100,7 +109,7 @@ def modified_date(entry):
     return entry["date"]
 
 
-def generate_sitemap(posts, rides, urbex):
+def generate_sitemap(posts, rides, urbex, notes):
     ns = "http://www.sitemaps.org/schemas/sitemap/0.9"
     urlset = ET.Element("urlset", xmlns=ns)
 
@@ -111,7 +120,11 @@ def generate_sitemap(posts, rides, urbex):
 
     dated = [(e, modified_date(e)) for e in posts + rides + urbex]
     latest = max((d for _, d in dated), default=None)
-    add(f"{BLOG_URL}/", latest)
+    add(f"{BLOG_URL}/", max([latest] + [n["date"] for n in notes[:1]]))
+    if posts:
+        add(f"{BLOG_URL}/posts/", max(modified_date(p) for p in posts))
+    if notes:
+        add(f"{BLOG_URL}/wall/", notes[0]["date"])
     if rides:
         add(f"{BLOG_URL}/rides/", max(modified_date(r) for r in rides))
     if urbex:
@@ -131,12 +144,12 @@ def pretty_date(iso):
     return f"{d:%b} {d.day}, {d.year}"
 
 
-def post_html(post, indent):
+def post_html(post, indent, base=""):
     e = lambda s: html.escape(s, quote=True)
     pad = " " * indent
     return (
         f'{pad}<article class="post-item">\n'
-        f'{pad}    <a href="posts/{e(post["slug"])}.html" class="post-link" data-slug="{e(post["slug"])}">\n'
+        f'{pad}    <a href="{base}posts/{e(post["slug"])}.html" class="post-link" data-slug="{e(post["slug"])}">\n'
         f'{pad}        <span class="post-title">{e(post["title"])}</span>\n'
         f'{pad}        <span class="post-desc">{e(post.get("description", ""))}</span>\n'
         f'{pad}        <span class="post-meta"><time datetime="{post["date"]}">{pretty_date(post["date"])}</time>'
@@ -144,6 +157,53 @@ def post_html(post, indent):
         f'{pad}    </a>\n'
         f'{pad}</article>'
     )
+
+
+LINK = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)|(https?://[^\s<]+[^\s<.,;:!?)\]'\"])")
+
+
+def note_text(text):
+    """Plain text to HTML: blank lines split paragraphs, [label](url) and bare URLs become links."""
+    def para(chunk):
+        out, last = [], 0
+        for m in LINK.finditer(chunk):
+            out.append(html.escape(chunk[last:m.start()], quote=False))
+            label, url = (m.group(1), m.group(2)) if m.group(2) else (m.group(3), m.group(3))
+            out.append(f'<a href="{html.escape(url, quote=True)}">{html.escape(label, quote=False)}</a>')
+            last = m.end()
+        out.append(html.escape(chunk[last:], quote=False))
+        return "<p>" + "".join(out).strip().replace("\n", "<br>") + "</p>"
+    return "".join(para(c) for c in re.split(r"\n\s*\n", text.strip()) if c.strip())
+
+
+def note_card(note, indent):
+    """A note as a small card, for the homepage's wall."""
+    pad = " " * indent
+    return (
+        f'{pad}<div class="note-card">\n'
+        f'{pad}    <time class="post-meta" datetime="{note["date"]}">{pretty_date(note["date"])}</time>\n'
+        f'{pad}    <div class="note-text">{note_text(note["text"])}</div>\n'
+        f'{pad}</div>'
+    )
+
+
+def note_post(note, indent):
+    """A note in the timeline on /wall/: avatar, name, handle, date, text."""
+    pad = " " * indent
+    return (
+        f'{pad}<div class="note">\n'
+        f'{pad}    <img class="note-avatar" src="../assets/me.jpg" alt="" width="40" height="40" loading="lazy">\n'
+        f'{pad}    <div class="note-body">\n'
+        f'{pad}        <div class="note-head"><a class="note-name" href="https://x.com/braelyn_ai">Braelyn Boynton</a>'
+        f' <span class="note-handle">@braelyn_ai</span> · <time datetime="{note["date"]}">{pretty_date(note["date"])}</time></div>\n'
+        f'{pad}        <div class="note-text">{note_text(note["text"])}</div>\n'
+        f'{pad}    </div>\n'
+        f'{pad}</div>'
+    )
+
+
+def view_more(href, indent):
+    return f'\n{" " * indent}<p class="view-more"><a href="{href}">View more →</a></p>'
 
 
 def ride_html(ride, base, indent):
@@ -185,22 +245,6 @@ def urbex_html(spot, base, indent):
         meta += f' · {e(spot["area"])}'
     lines.append(f'{pad}        <span class="post-meta">{meta}</span>')
     lines.append(f'{pad}    </div>')
-    lines.append(f'{pad}</a>')
-    return "\n".join(lines)
-
-
-def ride_tile(ride, base, indent):
-    """A cover-photo tile for the homepage rides row."""
-    e = lambda s: html.escape(s, quote=True)
-    pad = " " * indent
-    meta = pretty_date(ride["date"])
-    if ride.get("distanceMi"):
-        meta += f" · {int(ride['distanceMi'] + 0.5)} mi"
-    lines = [f'{pad}<a class="urbex-tile ride-tile" href="{base}rides/{e(ride["slug"])}.html" data-slug="{e(ride["slug"])}">']
-    if ride.get("cover"):
-        lines.append(f'{pad}    <img src="{base}{e(ride["cover"])}" alt="" loading="lazy">')
-    lines.append(f'{pad}    <span class="urbex-tile-text"><span class="urbex-tile-title">{e(ride["title"])}</span>'
-                 f'<span class="urbex-tile-meta">{meta}</span></span>')
     lines.append(f'{pad}</a>')
     return "\n".join(lines)
 
@@ -267,18 +311,32 @@ def sync_urbex_badges(urbex):
             page.write_text(new)
 
 
-def render_lists(posts, rides, urbex):
+HOME_POSTS = 4
+HOME_NOTES = 6
+
+
+def render_lists(posts, rides, urbex, notes):
     index = ROOT / "index.html"
     text = index.read_text()
-    text = fill(text, "posts", "\n".join(post_html(p, 12) for p in posts))
-    text = fill(text, "rides", '            <div class="urbex-grid">\n' + "\n".join(ride_tile(r, "", 16) for r in rides[:3]) + "\n            </div>")
-    # The homepage rides section only shows once there's a ride
-    text = re.sub(r'<section id="rides-section"( hidden)?>',
-                  '<section id="rides-section">' if rides else '<section id="rides-section" hidden>', text)
-    text = fill(text, "urbex", '            <div class="urbex-grid">\n' + "\n".join(urbex_tile(u, "", 16) for u in urbex[:6]) + "\n            </div>")
-    text = re.sub(r'<section id="urbex-section"( hidden)?>',
-                  '<section id="urbex-section">' if urbex else '<section id="urbex-section" hidden>', text)
+    body = "\n".join(post_html(p, 12) for p in posts[:HOME_POSTS])
+    if len(posts) > HOME_POSTS:
+        body += view_more("posts/", 12)
+    text = fill(text, "posts", body)
+    body = "\n".join(note_card(n, 12) for n in notes[:HOME_NOTES])
+    if len(notes) > HOME_NOTES:
+        body += view_more("wall/", 12)
+    text = fill(text, "wall", body)
+    # The homepage wall only shows once there's a note on it
+    text = re.sub(r'<section id="wall-section"( hidden)?>',
+                  '<section id="wall-section">' if notes else '<section id="wall-section" hidden>', text)
     index.write_text(text)
+
+    posts_index = ROOT / "posts" / "index.html"
+    posts_index.write_text(fill(posts_index.read_text(), "posts", "\n".join(post_html(p, 12, "../") for p in posts)))
+
+    wall_index = ROOT / "wall" / "index.html"
+    body = "\n".join(note_post(n, 12) for n in notes) or "            <p>No notes on the wall yet.</p>"
+    wall_index.write_text(fill(wall_index.read_text(), "wall", body))
 
     rides_index = ROOT / "rides" / "index.html"
     text = rides_index.read_text()
@@ -295,9 +353,10 @@ def render_lists(posts, rides, urbex):
 
 if __name__ == "__main__":
     posts, rides, urbex = load_entries()
+    notes = load_notes()
     everything = sorted(posts + rides + urbex, key=lambda p: p["date"], reverse=True)
     generate_feed(everything)
-    generate_sitemap(posts, rides, urbex)
-    render_lists(posts, rides, urbex)
+    generate_sitemap(posts, rides, urbex, notes)
+    render_lists(posts, rides, urbex, notes)
     sync_urbex_badges(urbex)
-    print("Generated feed.xml, sitemap.xml and the lists in index.html, rides/index.html + urbex/index.html")
+    print("Generated feed.xml, sitemap.xml and the lists in index.html, posts/, wall/, rides/ and urbex/")

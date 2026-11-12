@@ -32,7 +32,7 @@
 
             const desc = document.createElement('p');
             desc.className = 'sidebar-desc';
-            desc.textContent = 'Building cool shit, dancing in warehouses, motorcycles, planes and adrenaline sports.';
+            desc.textContent = 'Building cool shit, dancing in warehouses, motorcycles, planes, photography and music.';
             bio.appendChild(desc);
 
             const links = document.createElement('nav');

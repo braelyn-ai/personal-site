@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Essays by Braelyn Boynton on AI, codegen, startups and life.">
+    <meta name="author" content="Braelyn Boynton">
+    <title>Writing · Braelyn Boynton</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
+    <link rel="apple-touch-icon" href="../assets/icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles.css?v=5">
+    <script src="../theme.js?v=2"></script>
+    <script defer src="../slurp.js?v=3"></script>
+    <link rel="canonical" href="https://blog.braelyn.ai/posts/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Writing · Braelyn&#x27;s Blog">
+    <meta property="og:url" content="https://blog.braelyn.ai/posts/">
+    <meta property="og:image" content="https://blog.braelyn.ai/assets/me.jpg">
+    <meta property="og:site_name" content="Braelyn's Blog">
+    <meta property="og:description" content="Essays by Braelyn Boynton on AI, codegen, startups and life.">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Writing · Braelyn&#x27;s Blog">
+    <meta name="twitter:description" content="Essays by Braelyn Boynton on AI, codegen, startups and life.">
+    <meta name="twitter:image" content="https://blog.braelyn.ai/assets/me.jpg">
+</head>
+
+<body>
+    <header>
+        <p><a href="../">← Back to the blog</a></p>
+        <h1><span class="section-emoji" aria-hidden="true">✍️</span> Writing</h1>
+        <p class="ride-meta">Everything I&#x27;ve written, newest first.</p>
+    </header>
+
+    <main>
+        <div class="posts-list">
+            <!-- posts:start -->
+            <article class="post-item">
+                <a href="../posts/codegen-compiler-arc.html" class="post-link" data-slug="codegen-compiler-arc">
+                    <span class="post-title">Stop Dooming: Codegen will have its Gang of Four moment</span>
+                    <span class="post-desc">We&#x27;re 5.4% through the codegen adoption curve.</span>
+                    <span class="post-meta"><time datetime="2026-04-07">Apr 7, 2026</time> · 12 min read</span>
+                </a>
+            </article>
+            <article class="post-item">
+                <a href="../posts/social-media-trained-brains-codegen.html" class="post-link" data-slug="social-media-trained-brains-codegen">
+                    <span class="post-title">Social Media Trained Our Brains for the Current State of Codegen</span>
+                    <span class="post-desc">How a decade of social media and algorithmic taste-making primed our brains for the dopamine dynamics of AI code generation tools.</span>
+                    <span class="post-meta"><time datetime="2026-03-30">Mar 30, 2026</time> · 8 min read</span>
+                </a>
+            </article>
+            <article class="post-item">
+                <a href="../posts/sf_style.html" class="post-link" data-slug="sf_style">
+                    <span class="post-title">SF&#x27;s lack of style: a forcing function</span>
+                    <span class="post-desc">How San Francisco&#x27;s lack of fashion culture became a forcing function for authentic self-expression and identity.</span>
+                    <span class="post-meta"><time datetime="2026-03-13">Mar 13, 2026</time> · 3 min read</span>
+                </a>
+            </article>
+            <article class="post-item">
+                <a href="../posts/the-making-of-braelyn-ai.html" class="post-link" data-slug="the-making-of-braelyn-ai">
+                    <span class="post-title">The Making of Braelyn.ai</span>
+                    <span class="post-desc">How a crisis of identity, a trip to Berlin, and the discovery of Berghain inspired the design of braelyn.ai.</span>
+                    <span class="post-meta"><time datetime="2025-12-20">Dec 20, 2025</time> · 4 min read</span>
+                </a>
+            </article>
+            <article class="post-item">
+                <a href="../posts/lessons-young-startup-founder.html" class="post-link" data-slug="lessons-young-startup-founder">
+                    <span class="post-title">Lessons I&#x27;ve Learned As a Young, Startup Founder</span>
+                    <span class="post-desc">Lessons learned from founding startups as a young entrepreneur. Thoughts on age, passion, pivoting, and the reality of hard work.</span>
+                    <span class="post-meta"><time datetime="2019-06-04">Jun 4, 2019</time> · 8 min read</span>
+                </a>
+            </article>
+            <!-- posts:end -->
+        </div>
+    </main>
+
+    <footer>
+        <hr>
+        <p><a href="../">← Back to the blog</a></p>
+    </footer>
+
+    <script>
+        document.querySelectorAll('.post-link').forEach(link => {
+            link.addEventListener('click', () => {
+                if (typeof slurp === 'function') slurp('blog_post_click', link.dataset.slug);
+            });
+        });
+    </script>
+</body>
+
+</html>
