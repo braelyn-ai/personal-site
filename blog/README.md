@@ -155,7 +155,7 @@ Map tiles: OpenStreetMap, OpenTopoMap and Esri (no API keys).
 
 ## Adding a Note to the Wall
 
-The wall holds notes: short, unpolished thoughts. Notes don't get their own page. The latest 6 show as cards on the homepage, and `/wall/` shows all of them as a timeline.
+The wall holds notes: short, unpolished thoughts. The latest 6 show as cards on the homepage, and `/wall/` shows all of them as a timeline. Each note also gets its own linkable page at `/wall/<id>.html`; a note's date links to it, and notes over 500 characters are cut short with a "Read more" link to it.
 
 ```bash
 python3 blog/new_note.py "The thought"
@@ -163,7 +163,22 @@ python3 blog/new_note.py                      # type or paste a longer one, then
 python3 blog/new_note.py --date 2026-11-01 "Backdated thought"
 ```
 
-Blank lines make paragraphs, and bare URLs and `[label](https://...)` become links. Notes are stored in `notes.json`, newest first. Edit that file to fix or delete one, then run `python3 blog/generate_feed.py`.
+Blank lines make paragraphs, and bare URLs and `[label](https://...)` become links. Notes are stored in `notes.json`, newest first. Edit that file to fix or delete one, then run `python3 blog/generate_feed.py`. Each note's `id` is its page name: it's filled in automatically and shouldn't be changed afterwards, or old links break.
+
+### From anywhere (and OpenClaw)
+
+The **Add a note to the wall** GitHub Action adds a note, pushes it to main and the blog redeploys, so you don't need a checkout:
+
+```bash
+gh workflow run add-note.yml -f text="The thought"
+```
+
+For OpenClaw, copy `openclaw/wall-note/` into your OpenClaw skills folder (for example `~/.openclaw/skills/wall-note/`). Then give it a token:
+
+1. Create a [fine-grained GitHub token](https://github.com/settings/personal-access-tokens/new) for **braelyn-ai/personal-site** only, with **Actions: Read and write** and nothing else. It can trigger the Action, but it can't push code.
+2. Set it as `BRAELYN_WALL_TOKEN` for OpenClaw (in `openclaw.json` under `skills.entries.braelyn-wall-note.apiKey`, or as an environment variable).
+
+Then ask it to "put this on my wall: ...". The skill only posts when you ask in chat, never because an email or web page says to.
 
 The homepage shows the latest 4 posts; `/posts/` lists all of them.
 
