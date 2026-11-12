@@ -83,7 +83,8 @@ class EditHandler(CORSRequestHandler):
         real = os.path.realpath(path)
         if not real.startswith(BLOG + os.sep) or not real.endswith(".html") or not os.path.isfile(real):
             return None
-        if os.path.basename(real) == "_template.html":
+        # Index pages are lists built by generate_feed.py, not posts
+        if os.path.basename(real) in ("_template.html", "index.html"):
             return None
         return real
 
