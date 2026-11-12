@@ -153,6 +153,20 @@ Map tiles: OpenStreetMap, OpenTopoMap and Esri (no API keys).
 - `bike` (string, optional)
 - `tags` (array, optional)
 
+## Adding a Note
+
+Notes are short, unpolished thoughts. They don't get their own page; each one shows with its date in the Notes list (the latest 6 on the homepage, all of them at `/notes/`).
+
+```bash
+python3 blog/new_note.py "The thought"
+python3 blog/new_note.py                      # type or paste a longer one, then Ctrl+D
+python3 blog/new_note.py --date 2026-11-01 "Backdated thought"
+```
+
+Blank lines make paragraphs, and bare URLs and `[label](https://...)` become links. Notes are stored in `notes.json`, newest first. Edit that file to fix or delete one, then run `python3 blog/generate_feed.py`.
+
+The homepage shows the latest 4 posts; `/posts/` lists all of them.
+
 ## Adding an Urban Exploration Post
 
 Urbex posts are about abandoned places. They live in `urbex/`, are listed in

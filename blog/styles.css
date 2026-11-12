@@ -369,7 +369,7 @@ hr {
     padding: 0.6rem 0;
     border-bottom: 1px solid var(--border);
 }
-.post-item:last-child {
+.post-item:last-of-type {
     border-bottom: none;
 }
 .post-link {
@@ -1109,6 +1109,35 @@ hr {
         padding: 0;
         border: 0;
     }
+}
+
+/* Notes: short dated thoughts with no page of their own */
+.note {
+    padding: 1.1rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.note:last-of-type {
+    border-bottom: 0;
+}
+
+.note .post-meta {
+    display: block;
+    margin-bottom: 0.35rem;
+}
+
+.note-text p {
+    margin: 0 0 0.6rem;
+}
+
+.note-text p:last-child {
+    margin-bottom: 0;
+}
+
+/* "View more" under the homepage lists */
+.view-more {
+    margin: 0.75rem 0 0;
+    font-size: 0.95rem;
 }
 
 /* Homepage: rides and urbex get a link each, so the page stays about the writing */
