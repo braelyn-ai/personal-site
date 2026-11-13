@@ -133,7 +133,7 @@ function table(id: string, title: string, rows: { label: string; value: number; 
         ${visible.map((r) => {
           const line = `
             <span class="bar" style="width:${(r.value / max) * 100}%"></span>
-            <span class="label" title="${r.label}">${r.label}${r.note ? ` <span class="muted">${r.note}</span>` : ''}</span>
+            <span class="label" title="${r.label.replace(/<[^>]+>/g, '')}">${r.label}${r.note ? ` <span class="muted">${r.note}</span>` : ''}</span>
             ${(r.cols ?? []).map((c, i) => `<span class="${cls(i)}">${c}</span>`).join('')}
             <span class="col">${num(r.value)}</span>`;
           return r.detail
@@ -181,6 +181,12 @@ function chart(t: Traffic): string {
       </div>
       <div class="chart-axis"><span>${fmt(bars[0].key)}</span><span>${fmt(bars[bars.length - 1].key)}</span></div>
     </section>`;
+}
+
+/** "blog.braelyn.ai/posts/x.html" -> site in grey, then the path */
+function pageLabel(key: string): string {
+  const i = key.indexOf('/');
+  return i > 0 ? `<span class="site">${esc(key.slice(0, i))}</span>${esc(key.slice(i))}` : esc(key);
 }
 
 function pageSources(t: Traffic, path: string): string {
@@ -232,7 +238,7 @@ function dashboard(t: Traffic): string {
     </section>
     ${chart(t)}
     ${table('pages', 'Pages', t.pages.map((r) => ({
-      label: esc(r.key), value: r.views,
+      label: pageLabel(r.key), value: r.views,
       cols: [num(r.visitors), duration(r.avg_seconds), r.avg_scroll == null ? '–' : `${r.avg_scroll}%`],
       detail: pageSources(t, r.key),
     })), { head: ['Visitors', 'Time', 'Scroll', 'Views'], limit: 10, phoneHides: [1, 2] })}
@@ -256,7 +262,7 @@ function dashboard(t: Traffic): string {
         <thead><tr><th>When</th><th>Page</th><th>From</th><th>Where</th><th>Device</th></tr></thead>
         <tbody>${t.recent.slice(0, shown.has('recent') ? 50 : 15).map((r) => `<tr>
           <td class="nowrap">${when(r.time)}</td>
-          <td title="${esc(r.title)}">${esc(r.path)}</td>
+          <td title="${esc(r.title)}">${pageLabel(r.path ?? '')}</td>
           <td>${esc(r.source)}</td>
           <td>${esc(r.place ?? '–')}</td>
           <td class="nowrap">${esc([r.device, r.browser].filter(Boolean).join(', '))}</td></tr>`).join('')}</tbody>
