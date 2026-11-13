@@ -94,7 +94,11 @@ def main():
             referrals.setdefault(visitor, []).append((r.created_at, r.event_data))
             continue
         if r.event_type in BLOG_PAGES:
-            path = BLOG_PAGES[r.event_type]((r.event_data or "").strip())
+            slug = (r.event_data or "").strip()
+            # Some old events carried the whole path ("/rides/x.html") instead of a slug
+            path = slug if slug.startswith("/") else BLOG_PAGES[r.event_type](slug)
+            if path and not path.endswith(("/", ".html")):
+                path += ".html"  # same page whether or not the old link had the extension
             site = "blog.braelyn.ai"
         elif r.event_type.startswith("blog_") or r.event_type in SKIP:
             continue  # clicks on the blog: the page they happened on was already counted
