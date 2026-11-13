@@ -6,7 +6,7 @@ Before page-view tracking (Nov 2026), the sites only sent one-off events:
   main site: clicks only (social_click, door_enter, ipod_click, ...) and referral
 
 This adds one `pageview` row per old page event (and one per main-site visit, from its first
-click), with what can be recovered: path, time, visitor (a hash of IP + user agent), visit
+click), with what can be recovered: site and path, time, visitor (a hash of IP + user agent), visit
 (30-minute gap), location (IP), device/browser/OS (user agent), bot flag and referring site
 (the referral event from the same visitor within a minute). Time on page and scroll weren't
 recorded back then.
@@ -65,8 +65,9 @@ def main():
     geo.load()
     # Only events from before the new tracking started, so nothing gets counted twice
     legacy = Event.event_data.like(MARK + "%")
+    # (page views without a path came from the old API, which dropped the new fields; they don't count)
     cutoff = db.query(func.min(Event.created_at)).filter(
-        Event.event_type == "pageview", or_(Event.event_data.is_(None), ~legacy)).scalar()
+        Event.event_type == "pageview", Event.path.isnot(None), or_(Event.event_data.is_(None), ~legacy)).scalar()
     done = {int(d[len(MARK):]) for (d,) in db.query(Event.event_data).filter(Event.event_type == "pageview", legacy)}
     q = db.query(Event.id, Event.event_type, Event.event_data, Event.ip_address, Event.user_agent, Event.created_at) \
         .filter(Event.event_type.notin_(["pageview", "page_leave"]), Event.created_at.isnot(None))
@@ -94,25 +95,32 @@ def main():
             continue
         if r.event_type in BLOG_PAGES:
             path = BLOG_PAGES[r.event_type]((r.event_data or "").strip())
+            site = "blog.braelyn.ai"
         elif r.event_type.startswith("blog_") or r.event_type in SKIP:
             continue  # clicks on the blog: the page they happened on was already counted
         elif sid not in main_visits:
             main_visits.add(sid)
             path = "/"  # main site: the first click of a visit stands in for the page load
+            site = "braelyn.ai"
         else:
             continue
         if not path or r.id in done:
             continue
-        new.append((r, visitor, sid, path))
+        new.append((r, visitor, sid, site, path))
 
     out = []
-    for r, visitor, sid, path in new:
-        ref = next((u for t, u in referrals.get(visitor, []) if abs(t - r.created_at) <= REFERRAL_WINDOW), None)
+    for r, visitor, sid, site, path in new:
+        # The closest unused referral from this visitor within a minute: it credits one view, not every page after it
+        near = [x for x in referrals.get(visitor, []) if abs(x[0] - r.created_at) <= REFERRAL_WINDOW]
+        hit = min(near, key=lambda x: abs(x[0] - r.created_at), default=None)
+        ref = hit and hit[1]
+        if hit:
+            referrals[visitor].remove(hit)
         agent = ua_parser.parse(r.user_agent)
         country, region, city = geo.lookup(r.ip_address)
         out.append({
             "event_type": "pageview", "event_data": f"{MARK}{r.id}", "created_at": r.created_at,
-            "ip_address": r.ip_address, "user_agent": r.user_agent, "path": path,
+            "ip_address": r.ip_address, "user_agent": r.user_agent, "site": site, "path": path,
             "visitor_id": visitor, "session_id": sid,
             "referrer": (ref or None) and ref[:1000], "referrer_host": referrer_host(ref),
             "country": country, "region": region, "city": city,
@@ -130,7 +138,7 @@ def main():
         print(f"  with location {sum(1 for o in humans if o['country'])}/{len(humans)}, "
               f"with a source {sum(1 for o in humans if o['referrer_host'])}/{len(humans)}")
         print("  top pages:")
-        for p, n in Counter(o["path"] for o in humans).most_common(10):
+        for p, n in Counter(o["site"] + o["path"] for o in humans).most_common(15):
             print(f"    {n:7}  {p}")
 
     if mode != "--apply":

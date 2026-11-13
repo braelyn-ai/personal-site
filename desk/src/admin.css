@@ -55,6 +55,7 @@ main {
 button { font: inherit; color: inherit; cursor: pointer; }
 code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
 .muted { color: var(--muted); }
+.site { color: var(--muted); }
 .err { color: var(--err); }
 
 /* Header */

@@ -79,6 +79,23 @@ def source_name(name: Optional[str]) -> Optional[str]:
     return SOURCE_NAMES.get(name, name)
 
 
+# Pages that only exist on the blog, for page views recorded before `site` was
+BLOG_PREFIXES = ("/posts/", "/rides/", "/urbex/", "/wall/")
+
+
+def site_of(request: Request) -> Optional[str]:
+    """Which of our sites sent the event ("braelyn.ai", "blog.braelyn.ai"), from Origin or Referer."""
+    for header in ("origin", "referer"):
+        host = (urlparse(request.headers.get(header) or "").hostname or "").lower().removeprefix("www.")
+        if host:
+            return host[:100]
+    return None
+
+
+def guess_site(path: Optional[str]) -> Optional[str]:
+    return "blog.braelyn.ai" if path and path.startswith(BLOG_PREFIXES) else None
+
+
 def referrer_host(referrer: Optional[str]) -> Optional[str]:
     """Where an external visit came from (e.g. "google", "x", "example.com"), or None for direct/internal."""
     if not referrer:
@@ -179,6 +196,7 @@ async def slurp_event(request: Request):
             ip_address=ip_address,
             user_agent=clip(user_agent),
             path=clip(event.path),
+            site=site_of(request),
             title=clip(event.title, 300),
             referrer=clip(event.referrer, 1000),
             referrer_host=referrer_host(event.referrer),
@@ -325,8 +343,10 @@ async def get_admin_traffic(days: int = 30):
     window = [Event.created_at >= datetime.now() - timedelta(days=days)] if days else []
     db = SessionLocal()
     try:
+        # A page view without a path was recorded by the old API (Nov 10-12, 2026), which dropped
+        # everything but the type; those are left out
         views = db.query(Event).filter(
-            Event.event_type == "pageview", *window, Event.is_bot.isnot(True))
+            Event.event_type == "pageview", Event.path.isnot(None), *window, Event.is_bot.isnot(True))
         leaves = db.query(Event).filter(
             Event.event_type == "page_leave", *window, Event.is_bot.isnot(True))
         source = f.coalesce(Event.utm_source, Event.referrer_host, "direct")
@@ -336,15 +356,20 @@ async def get_admin_traffic(days: int = 30):
                 .group_by(col).order_by(f.count(Event.id).desc()).limit(n).all()
             return [{"key": k or "Unknown", "views": v, "visitors": u} for k, v, u in rows]
 
+        # A page is site + path, so braelyn.ai/ and blog.braelyn.ai/ stay apart. Views from before
+        # `site` was recorded get it from the path when the path only exists on the blog.
+        site = f.coalesce(Event.site, case(*[(Event.path.like(p + "%"), "blog.braelyn.ai") for p in BLOG_PREFIXES], else_=""))
+        page = f.concat(site, Event.path)
+
         # Time on page and scroll depth come from the page_leave event
         engagement = {p: (round(s or 0), round(sc or 0)) for p, s, sc in leaves.with_entities(
-            Event.path, f.avg(Event.duration_s), f.avg(Event.scroll_pct)).group_by(Event.path).all()}
-        pages = top(Event.path, 50)
+            page, f.avg(Event.duration_s), f.avg(Event.scroll_pct)).group_by(page).all()}
+        pages = top(page, 50)
         for p in pages:
             p["avg_seconds"], p["avg_scroll"] = engagement.get(p["key"], (None, None))
 
         place = f.coalesce(Event.city, "?") + ", " + f.coalesce(Event.region, "?") + ", " + f.coalesce(Event.country, "?")
-        pairs = views.with_entities(Event.path, source, f.count(Event.id)).group_by(Event.path, source) \
+        pairs = views.with_entities(page, source, f.count(Event.id)).group_by(page, source) \
             .order_by(f.count(Event.id).desc()).limit(50).all()
         daily = views.with_entities(f.date(Event.created_at), f.count(Event.id), f.count(distinct(Event.visitor_id))) \
             .group_by(f.date(Event.created_at)).order_by(f.date(Event.created_at)).all()
@@ -373,7 +398,7 @@ async def get_admin_traffic(days: int = 30):
             "os": top(Event.os, 10),
             "recent": [{
                 "time": e.created_at.isoformat() if e.created_at else None,
-                "path": e.path, "title": e.title,
+                "path": (e.site or guess_site(e.path) or "") + (e.path or ""), "title": e.title,
                 "source": e.utm_source or e.referrer_host or "direct",
                 "place": ", ".join(x for x in (e.city, e.country) if x) or None,
                 "device": e.device, "browser": e.browser, "visitor": (e.visitor_id or "")[:6],
