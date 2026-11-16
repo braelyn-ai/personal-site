@@ -276,7 +276,7 @@ def note_post(note, indent, full=False):
         f'{pad}    <img class="note-avatar" src="../assets/me.jpg" alt="" width="40" height="40" loading="lazy">\n'
         f'{pad}    <div class="note-body">\n'
         f'{pad}        <div class="note-head"><span class="note-name">Braelyn Boynton</span>'
-        f' <span class="note-handle">@braelyn_ai</span> · <a class="note-date" href="{href}">'
+        f' · <a class="note-date" href="{href}">'
         f'<time datetime="{note["date"]}">{pretty_date(note["date"])}</time></a></div>\n'
         f'{pad}        {note_title(note, None if full else href)}\n'
         f'{pad}        {note_body(note, href, full)}\n'

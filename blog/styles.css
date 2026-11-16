@@ -1244,12 +1244,6 @@ hr {
     margin: 0.3rem 0 0.6rem;
 }
 
-/* Phones: drop the handle so the date always fits */
-@media (max-width: 480px) {
-    .note-handle {
-        display: none;
-    }
-}
 
 .wall-feed > p {
     margin: 0;
