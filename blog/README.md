@@ -155,7 +155,7 @@ Map tiles: OpenStreetMap, OpenTopoMap and Esri (no API keys).
 
 ## Adding a Note to the Wall
 
-The wall holds notes: short, unpolished thoughts. The latest 6 show as cards on the homepage, and `/wall/` shows all of them as a timeline. Each note has a title, shown as "on: <title>", and its own page at `/wall/<id>.html` that the title links to. Lists show about the first two lines of a note, ending in "… read more", which links to the rest.
+The wall holds notes: short, unpolished thoughts. The latest 6 show as cards on the homepage, and `/wall/` shows all of them as a timeline. Each note has a title, shown as "on: <title>", and its own page at `/wall/<id>.html` that the title links to. Lists show the first two lines of a note, ending in "… read more", which links to the rest (`notes.js` fits the preview to two lines; without JavaScript it is cut at about 150 characters).
 
 ```bash
 python3 blog/new_note.py --title "fear of failure" "The thought"

@@ -216,7 +216,7 @@ def paragraphs(text):
     return [c for c in re.split(r"\n\s*\n", text.strip()) if c.strip()]
 
 
-PREVIEW_CHARS = 150  # about two lines on a computer; the rest is behind "read more"
+PREVIEW_CHARS = 150  # where previews are cut without JavaScript; notes.js trims them to exactly two lines
 
 
 def cut_text(text, limit):
@@ -234,16 +234,19 @@ def cut_text(text, limit):
 
 
 def note_body(note, href, full=False):
-    """The whole note, or its opening ending in "… read more", as if the link were part of the text."""
+    """The whole note, or its opening ending in "… read more", as if the link were part of the text.
+
+    The full first paragraph rides along in data-full, so notes.js can refit the preview to two lines."""
     if full:
         return f'<div class="note-text">{note_text(note["text"])}</div>'
     paras = paragraphs(note["text"])
     text, cut = cut_text(paras[0], PREVIEW_CHARS)
-    html_ = note_text(text)
-    if cut or len(paras) > 1:
-        link = f'{"…" if cut else ""} <a class="note-more" href="{href}">read more</a>'
-        html_ = html_[:-len("</p>")] + link + "</p>"
-    return f'<div class="note-text">{html_}</div>'
+    body = note_text(text)
+    if not (cut or len(paras) > 1):
+        return f'<div class="note-text">{body}</div>'
+    link = f'{"…" if cut else ""} <a class="note-more" href="{href}">read more</a>'
+    body = body[:-len("</p>")] + link + "</p>"
+    return f'<div class="note-text note-preview" data-full="{html.escape(note_plain(paras[0]), quote=True)}">{body}</div>'
 
 
 def note_title(note, href=None):

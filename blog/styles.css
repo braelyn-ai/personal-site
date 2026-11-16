@@ -1223,7 +1223,7 @@ hr {
     text-decoration: underline;
 }
 
-/* "read more" ends a note's preview, inline like part of the text */
+/* "read more" ends a note's preview, inline like part of the text (notes.js fits it to two lines) */
 .note-more {
     color: var(--link);
     text-decoration: none;
