@@ -216,17 +216,34 @@ def paragraphs(text):
     return [c for c in re.split(r"\n\s*\n", text.strip()) if c.strip()]
 
 
-PREVIEW_CHARS = 150  # about two lines; anything longer (or a second paragraph) gets a Read more link
+PREVIEW_CHARS = 150  # about two lines on a computer; the rest is behind "read more"
+
+
+def cut_text(text, limit):
+    """Text cut to about `limit` characters at a word break (never inside a link), and whether it was cut."""
+    if len(text) <= limit:
+        return text, False
+    cut = limit
+    for m in LINK.finditer(text):
+        if m.start() < cut < m.end():
+            cut = m.start()
+    space = text.rfind(" ", 0, cut)
+    if space > limit // 2:
+        cut = space
+    return text[:cut].rstrip(" ,;:-—"), True
 
 
 def note_body(note, href, full=False):
-    """The whole note, or its first paragraph clipped to two lines, with Read more at the end of the second."""
+    """The whole note, or its opening ending in "… read more", as if the link were part of the text."""
     if full:
         return f'<div class="note-text">{note_text(note["text"])}</div>'
     paras = paragraphs(note["text"])
-    more = len(paras) > 1 or len(note_plain(paras[0])) > PREVIEW_CHARS
-    link = f'<a class="note-more" href="{href}">Read more</a>' if more else ""
-    return f'<div class="note-text note-preview">{note_text(paras[0])}{link}</div>'
+    text, cut = cut_text(paras[0], PREVIEW_CHARS)
+    html_ = note_text(text)
+    if cut or len(paras) > 1:
+        link = f'{"…" if cut else ""} <a class="note-more" href="{href}">read more</a>'
+        html_ = html_[:-len("</p>")] + link + "</p>"
+    return f'<div class="note-text">{html_}</div>'
 
 
 def note_title(note, href=None):

@@ -1147,18 +1147,6 @@ hr {
     text-decoration: underline;
 }
 
-/* Lists show the first two lines; the rest is on the note's own page */
-.note-preview {
-    position: relative;
-}
-
-.note-preview p {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
-}
 
 /* Homepage: each note is a small card */
 .wall-cards {
@@ -1235,15 +1223,11 @@ hr {
     text-decoration: underline;
 }
 
-/* "Read more" sits at the end of the second line, over a fade where the text gets cut */
+/* "read more" ends a note's preview, inline like part of the text */
 .note-more {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    padding-left: 2.5em;
-    background: linear-gradient(to right, transparent, var(--card) 2em);
     color: var(--link);
     text-decoration: none;
+    white-space: nowrap;
 }
 
 .note-more:hover {
