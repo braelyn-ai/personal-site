@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://blog.braelyn.ai/</loc>
-    <lastmod>2026-11-12</lastmod>
+    <lastmod>2026-11-14</lastmod>
   </url>
   <url>
     <loc>https://blog.braelyn.ai/posts/</loc>
@@ -10,6 +10,18 @@
   </url>
   <url>
     <loc>https://blog.braelyn.ai/wall/</loc>
+    <lastmod>2026-11-14</lastmod>
+  </url>
+  <url>
+    <loc>https://blog.braelyn.ai/wall/2026-11-14-pretentiousness-in-underground-music.html</loc>
+    <lastmod>2026-11-14</lastmod>
+  </url>
+  <url>
+    <loc>https://blog.braelyn.ai/wall/2026-11-12-burnout-in-the-codegen-era.html</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://blog.braelyn.ai/wall/2026-11-12-fear-of-failure.html</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>

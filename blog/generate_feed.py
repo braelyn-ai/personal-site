@@ -16,6 +16,7 @@ new_note.py run it for you).
 import html
 import json
 import re
+import unicodedata
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,13 +43,41 @@ def load_entries():
     return load_section("posts"), load_section("rides"), load_section("urbex")
 
 
+def note_id(note, taken):
+    """A note's permanent id (and page name): its date plus its title (or its first few words, without one)."""
+    words = unicodedata.normalize("NFKD", note.get("title") or LINK.sub(lambda m: m.group(1) or "", note["text"]))
+    words = re.findall(r"[a-z0-9]+", words.encode("ascii", "ignore").decode().lower())
+    base = note["date"]
+    for w in words[:8]:
+        if len(base) + len(w) + 1 > 70:
+            break
+        base += "-" + w
+    nid, n = base, 2
+    while nid in taken:
+        nid, n = f"{base}-{n}", n + 1
+    return nid
+
+
 def load_notes():
-    """notes.json (the notes on the wall), newest first. Notes from the same day keep their order in the file."""
+    """notes.json (the notes on the wall), newest first. Notes from the same day keep their order in the file.
+
+    Gives any note without an id one, and saves it back, so its page URL never changes afterwards."""
     path = ROOT / "notes.json"
     if not path.exists():
         return []
-    with open(path) as f:
-        return sorted(json.load(f), key=lambda n: n["date"], reverse=True)
+    notes = json.loads(path.read_text())
+    untitled = [n["date"] for n in notes if not (n.get("title") or "").strip()]
+    if untitled:
+        raise SystemExit(f"Every note needs a title (shown as \"on: <title>\"). Missing on: {', '.join(untitled)}")
+    taken = {n["id"] for n in notes if n.get("id")}
+    if not all(n.get("id") for n in notes):
+        for n in reversed(notes):  # oldest first, so an older note keeps the plain id
+            if not n.get("id"):
+                n["id"] = note_id(n, taken)
+                taken.add(n["id"])
+        notes = [{"id": n["id"], **{k: v for k, v in n.items() if k != "id"}} for n in notes]
+        path.write_text(json.dumps(notes, indent=2, ensure_ascii=False) + "\n")
+    return sorted(notes, key=lambda n: n["date"], reverse=True)
 
 
 def url_for(entry):
@@ -125,6 +154,8 @@ def generate_sitemap(posts, rides, urbex, notes):
         add(f"{BLOG_URL}/posts/", max(modified_date(p) for p in posts))
     if notes:
         add(f"{BLOG_URL}/wall/", notes[0]["date"])
+    for note in notes:
+        add(f"{BLOG_URL}/wall/{note['id']}.html", note["date"])
     if rides:
         add(f"{BLOG_URL}/rides/", max(modified_date(r) for r in rides))
     if urbex:
@@ -176,34 +207,128 @@ def note_text(text):
     return "".join(para(c) for c in re.split(r"\n\s*\n", text.strip()) if c.strip())
 
 
+def note_plain(text):
+    """The note as plain text: links reduced to their labels (for titles and descriptions)."""
+    return re.sub(r"\s+", " ", LINK.sub(lambda m: m.group(1) or m.group(3), text)).strip()
+
+
+def paragraphs(text):
+    return [c for c in re.split(r"\n\s*\n", text.strip()) if c.strip()]
+
+
+PREVIEW_CHARS = 150  # where previews are cut without JavaScript; notes.js trims them to exactly two lines
+
+
+def cut_text(text, limit):
+    """Text cut to about `limit` characters at a word break (never inside a link), and whether it was cut."""
+    if len(text) <= limit:
+        return text, False
+    cut = limit
+    for m in LINK.finditer(text):
+        if m.start() < cut < m.end():
+            cut = m.start()
+    space = text.rfind(" ", 0, cut)
+    if space > limit // 2:
+        cut = space
+    return text[:cut].rstrip(" ,;:-—"), True
+
+
+def note_body(note, href, full=False):
+    """The whole note, or its opening ending in "… read more", as if the link were part of the text.
+
+    The full first paragraph rides along in data-full, so notes.js can refit the preview to two lines."""
+    if full:
+        return f'<div class="note-text">{note_text(note["text"])}</div>'
+    paras = paragraphs(note["text"])
+    text, cut = cut_text(paras[0], PREVIEW_CHARS)
+    body = note_text(text)
+    if not (cut or len(paras) > 1):
+        return f'<div class="note-text">{body}</div>'
+    link = f'{"…" if cut else ""} <a class="note-more" href="{href}">read more</a>'
+    body = body[:-len("</p>")] + link + "</p>"
+    return f'<div class="note-text note-preview" data-full="{html.escape(note_plain(paras[0]), quote=True)}">{body}</div>'
+
+
+def note_title(note, href=None):
+    """"on: <title>", linking to the note's own page (except on that page)."""
+    label = f'on: {html.escape(note["title"].strip(), quote=False)}'
+    if href is None:
+        return f'<h1 class="note-title">{label}</h1>'
+    return f'<h3 class="note-title"><a href="{href}">{label}</a></h3>'
+
+
 def note_card(note, indent):
     """A note as a small card, for the homepage's wall."""
     pad = " " * indent
+    href = f'wall/{note["id"]}.html'
     return (
         f'{pad}<div class="note-card">\n'
-        f'{pad}    <time class="post-meta" datetime="{note["date"]}">{pretty_date(note["date"])}</time>\n'
-        f'{pad}    <div class="note-text">{note_text(note["text"])}</div>\n'
+        f'{pad}    <a class="post-meta note-date" href="{href}"><time datetime="{note["date"]}">{pretty_date(note["date"])}</time></a>\n'
+        f'{pad}    {note_title(note, href)}\n'
+        f'{pad}    {note_body(note, href)}\n'
         f'{pad}</div>'
     )
 
 
-def note_post(note, indent):
-    """A note in the timeline on /wall/: avatar, name, handle, date, text."""
+def note_post(note, indent, full=False):
+    """A note in the timeline: avatar, name, handle, date (which links to the note's own page), title, text."""
     pad = " " * indent
+    href = f'{note["id"]}.html'
     return (
         f'{pad}<div class="note">\n'
         f'{pad}    <img class="note-avatar" src="../assets/me.jpg" alt="" width="40" height="40" loading="lazy">\n'
         f'{pad}    <div class="note-body">\n'
-        f'{pad}        <div class="note-head"><a class="note-name" href="https://x.com/braelyn_ai">Braelyn Boynton</a>'
-        f' <span class="note-handle">@braelyn_ai</span> · <time datetime="{note["date"]}">{pretty_date(note["date"])}</time></div>\n'
-        f'{pad}        <div class="note-text">{note_text(note["text"])}</div>\n'
+        f'{pad}        <div class="note-head"><span class="note-name">Braelyn Boynton</span>'
+        f' · <a class="note-date" href="{href}">'
+        f'<time datetime="{note["date"]}">{pretty_date(note["date"])}</time></a></div>\n'
+        f'{pad}        {note_title(note, None if full else href)}\n'
+        f'{pad}        {note_body(note, href, full)}\n'
         f'{pad}    </div>\n'
         f'{pad}</div>'
     )
 
 
-def view_more(href, indent):
-    return f'\n{" " * indent}<p class="view-more"><a href="{href}">View more →</a></p>'
+NOTE_PAGE_MARK = "<!-- Generated by generate_feed.py from notes.json. Edit notes.json, not this file. -->"
+
+
+def note_page(note, wall_html):
+    """A note's own page, built from the wall page's <head> and layout."""
+    e = lambda s: html.escape(s, quote=True)
+    plain = note_plain(note["text"])
+    short = f'on: {note["title"].strip()}'
+    desc = plain if len(plain) <= 200 else plain[:plain.rfind(" ", 0, 200)].rstrip(",;:-") + "…"
+    url = f'{BLOG_URL}/wall/{note["id"]}.html'
+    page = wall_html[:wall_html.index("<body>")]
+    page = page.replace("<!DOCTYPE html>", "<!DOCTYPE html>\n" + NOTE_PAGE_MARK, 1)
+    page = re.sub(r'<meta name="description" content="[^"]*">', f'<meta name="description" content="{e(desc)}">', page)
+    page = re.sub(r"<title>.*?</title>", f"<title>{e(short)} · Braelyn Boynton</title>", page)
+    page = page.replace(f"{BLOG_URL}/wall/", url)
+    page = page.replace('<meta property="og:type" content="website">', '<meta property="og:type" content="article">')
+    page = re.sub(r'(<meta (?:property="og:title"|name="twitter:title") content=")[^"]*"', rf'\1{e(short)}"', page)
+    page = re.sub(r'(<meta (?:property="og:description"|name="twitter:description") content=")[^"]*"', rf'\1{e(desc)}"', page)
+    return page + f"""<body>
+    <header>
+        <p><a href="./">← The wall</a></p>
+    </header>
+
+    <main>
+        <div class="wall-feed note-single">
+{note_post(note, 12, full=True)}
+        </div>
+    </main>
+
+    <footer>
+        <hr>
+        <p><a href="./">← The wall</a> · <a href="../">The blog</a></p>
+    </footer>
+</body>
+
+</html>
+"""
+
+
+def view_more(href, indent, label="View more"):
+    return f'\n{" " * indent}<p class="view-more"><a href="{href}">{label} →</a></p>'
 
 
 def ride_html(ride, base, indent):
@@ -323,8 +448,8 @@ def render_lists(posts, rides, urbex, notes):
         body += view_more("posts/", 12)
     text = fill(text, "posts", body)
     body = "\n".join(note_card(n, 12) for n in notes[:HOME_NOTES])
-    if len(notes) > HOME_NOTES:
-        body += view_more("wall/", 12)
+    if notes:  # always link the wall, even before there are more notes than fit here
+        body += view_more("wall/", 12, "View all notes")
     text = fill(text, "wall", body)
     # The homepage wall only shows once there's a note on it
     text = re.sub(r'<section id="wall-section"( hidden)?>',
@@ -336,7 +461,16 @@ def render_lists(posts, rides, urbex, notes):
 
     wall_index = ROOT / "wall" / "index.html"
     body = "\n".join(note_post(n, 12) for n in notes) or "            <p>No notes on the wall yet.</p>"
-    wall_index.write_text(fill(wall_index.read_text(), "wall", body))
+    wall_html = fill(wall_index.read_text(), "wall", body)
+    wall_index.write_text(wall_html)
+
+    # Each note's own page; drop pages for notes that were deleted from notes.json
+    ids = {n["id"] for n in notes}
+    for page in (ROOT / "wall").glob("*.html"):
+        if page.stem not in ids and page.name != "index.html" and NOTE_PAGE_MARK in page.read_text():
+            page.unlink()
+    for note in notes:
+        (ROOT / "wall" / f'{note["id"]}.html').write_text(note_page(note, wall_html))
 
     rides_index = ROOT / "rides" / "index.html"
     text = rides_index.read_text()
