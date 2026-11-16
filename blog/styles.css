@@ -339,6 +339,11 @@ hr {
         overflow-x: hidden;
     }
 
+    /* Post text a touch smaller on phones (1.1rem elsewhere) */
+    main > article:not(.post-item) {
+        font-size: 1rem;
+    }
+
     .bio {
         flex-direction: column;
         text-align: center;
