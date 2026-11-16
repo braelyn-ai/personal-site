@@ -44,12 +44,12 @@ def load_entries():
 
 
 def note_id(note, taken):
-    """A note's permanent id (and page name): its date plus its first few words."""
-    words = unicodedata.normalize("NFKD", LINK.sub(lambda m: m.group(1) or "", note["text"]))
+    """A note's permanent id (and page name): its date plus its title (or its first few words, without one)."""
+    words = unicodedata.normalize("NFKD", note.get("title") or LINK.sub(lambda m: m.group(1) or "", note["text"]))
     words = re.findall(r"[a-z0-9]+", words.encode("ascii", "ignore").decode().lower())
     base = note["date"]
-    for w in words[:6]:
-        if len(base) + len(w) + 1 > 60:
+    for w in words[:8]:
+        if len(base) + len(w) + 1 > 70:
             break
         base += "-" + w
     nid, n = base, 2
@@ -66,6 +66,9 @@ def load_notes():
     if not path.exists():
         return []
     notes = json.loads(path.read_text())
+    untitled = [n["date"] for n in notes if not (n.get("title") or "").strip()]
+    if untitled:
+        raise SystemExit(f"Every note needs a title (shown as \"on: <title>\"). Missing on: {', '.join(untitled)}")
     taken = {n["id"] for n in notes if n.get("id")}
     if not all(n.get("id") for n in notes):
         for n in reversed(notes):  # oldest first, so an older note keeps the plain id
@@ -204,33 +207,34 @@ def note_text(text):
     return "".join(para(c) for c in re.split(r"\n\s*\n", text.strip()) if c.strip())
 
 
-NOTE_PREVIEW = 500  # longer notes get cut here, with a "Read more" link to their own page
-
-
 def note_plain(text):
     """The note as plain text: links reduced to their labels (for titles and descriptions)."""
     return re.sub(r"\s+", " ", LINK.sub(lambda m: m.group(1) or m.group(3), text)).strip()
 
 
-def note_preview(text):
-    """The note cut to about NOTE_PREVIEW characters at a word break (never inside a link), and whether it was cut."""
-    if len(text) <= NOTE_PREVIEW:
-        return text, False
-    cut = NOTE_PREVIEW
-    for m in LINK.finditer(text):
-        if m.start() < cut < m.end():
-            cut = m.start()
-    space = max(text.rfind(" ", 0, cut), text.rfind("\n", 0, cut))
-    if space > NOTE_PREVIEW // 2:
-        cut = space
-    return text[:cut].rstrip(" \n,;:-") + "…", True
+def paragraphs(text):
+    return [c for c in re.split(r"\n\s*\n", text.strip()) if c.strip()]
 
 
-def note_body(note, href):
-    """The note's text, cut short with a Read more link when it's long."""
-    text, cut = note_preview(note["text"])
-    more = f'<p class="note-more"><a href="{href}">Read more</a></p>' if cut else ""
-    return note_text(text) + more
+PREVIEW_CHARS = 150  # about two lines; anything longer (or a second paragraph) gets a Read more link
+
+
+def note_body(note, href, full=False):
+    """The whole note, or its first paragraph clipped to two lines with a Read more link to its own page."""
+    if full:
+        return f'<div class="note-text">{note_text(note["text"])}</div>'
+    paras = paragraphs(note["text"])
+    more = len(paras) > 1 or len(note_plain(paras[0])) > PREVIEW_CHARS
+    link = f'<p class="note-more"><a href="{href}">Read more</a></p>' if more else ""
+    return f'<div class="note-text note-preview">{note_text(paras[0])}</div>{link}'
+
+
+def note_title(note, href=None):
+    """"on: <title>", linking to the note's own page (except on that page)."""
+    label = f'on: {html.escape(note["title"].strip(), quote=False)}'
+    if href is None:
+        return f'<h1 class="note-title">{label}</h1>'
+    return f'<h3 class="note-title"><a href="{href}">{label}</a></h3>'
 
 
 def note_card(note, indent):
@@ -240,16 +244,16 @@ def note_card(note, indent):
     return (
         f'{pad}<div class="note-card">\n'
         f'{pad}    <a class="post-meta note-date" href="{href}"><time datetime="{note["date"]}">{pretty_date(note["date"])}</time></a>\n'
-        f'{pad}    <div class="note-text">{note_body(note, href)}</div>\n'
+        f'{pad}    {note_title(note, href)}\n'
+        f'{pad}    {note_body(note, href)}\n'
         f'{pad}</div>'
     )
 
 
 def note_post(note, indent, full=False):
-    """A note in the timeline: avatar, name, handle, date (which links to the note's own page), text."""
+    """A note in the timeline: avatar, name, handle, date (which links to the note's own page), title, text."""
     pad = " " * indent
     href = f'{note["id"]}.html'
-    body = note_text(note["text"]) if full else note_body(note, href)
     return (
         f'{pad}<div class="note">\n'
         f'{pad}    <img class="note-avatar" src="../assets/me.jpg" alt="" width="40" height="40" loading="lazy">\n'
@@ -257,7 +261,8 @@ def note_post(note, indent, full=False):
         f'{pad}        <div class="note-head"><span class="note-name">Braelyn Boynton</span>'
         f' <span class="note-handle">@braelyn_ai</span> · <a class="note-date" href="{href}">'
         f'<time datetime="{note["date"]}">{pretty_date(note["date"])}</time></a></div>\n'
-        f'{pad}        <div class="note-text">{body}</div>\n'
+        f'{pad}        {note_title(note, None if full else href)}\n'
+        f'{pad}        {note_body(note, href, full)}\n'
         f'{pad}    </div>\n'
         f'{pad}</div>'
     )
@@ -270,7 +275,7 @@ def note_page(note, wall_html):
     """A note's own page, built from the wall page's <head> and layout."""
     e = lambda s: html.escape(s, quote=True)
     plain = note_plain(note["text"])
-    short = plain if len(plain) <= 70 else plain[:plain.rfind(" ", 0, 70)].rstrip(",;:-") + "…"
+    short = f'on: {note["title"].strip()}'
     desc = plain if len(plain) <= 200 else plain[:plain.rfind(" ", 0, 200)].rstrip(",;:-") + "…"
     url = f'{BLOG_URL}/wall/{note["id"]}.html'
     page = wall_html[:wall_html.index("<body>")]

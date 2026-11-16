@@ -16,7 +16,8 @@ The wall at https://blog.braelyn.ai/wall/ holds Braelyn's notes: short, unpolish
 
 ## What to post
 
-- Braelyn's own words. Fix obvious typos, capitalization and punctuation from dictation, and nothing else. Don't add hashtags, emoji, titles or sign-offs.
+- Braelyn's own words. Fix obvious typos, capitalization and punctuation from dictation, and nothing else. Don't add hashtags, emoji or sign-offs.
+- Every note needs a short lowercase title naming its topic, shown as "on: <title>" (e.g. "fear of failure", "burnout in the codegen era"). Use Braelyn's title if they gave one; otherwise suggest one and wait for a yes before posting.
 - If you wrote or reworded the note yourself (beyond those small fixes), show Braelyn the final text and wait for a yes before posting.
 - Blank lines make paragraphs. Bare URLs and `[label](https://...)` become links. No HTML.
 - Up to 5000 characters.
@@ -24,13 +25,13 @@ The wall at https://blog.braelyn.ai/wall/ holds Braelyn's notes: short, unpolish
 ## How to post
 
 ```bash
-python3 {baseDir}/post_note.py "The note text"
+python3 {baseDir}/post_note.py --title "fear of failure" "The note text"
 ```
 
 For longer notes, or text with quotes that are awkward to escape, pipe it in:
 
 ```bash
-python3 {baseDir}/post_note.py <<'EOF'
+python3 {baseDir}/post_note.py --title "the topic" <<'EOF'
 First paragraph.
 
 Second paragraph.

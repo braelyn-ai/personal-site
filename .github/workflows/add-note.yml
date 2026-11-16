@@ -1,5 +1,5 @@
 # Adds a note to the blog's wall and pushes it to main, which redeploys the blog.
-# Run it from the Actions tab, with `gh workflow run add-note.yml -f text="..."`,
+# Run it from the Actions tab, with `gh workflow run add-note.yml -f title="..." -f text="..."`,
 # or from OpenClaw (see openclaw/wall-note/). The only credential needed is a
 # token that can trigger workflows; it can't push code itself.
 name: Add a note to the wall
@@ -7,6 +7,10 @@ name: Add a note to the wall
 on:
   workflow_dispatch:
     inputs:
+      title:
+        description: 'Shown as "on: <title>", e.g. "fear of failure"'
+        required: true
+        type: string
       text:
         description: The note (blank lines make paragraphs; URLs become links)
         required: true
@@ -36,11 +40,13 @@ jobs:
       - name: Add the note
         env:
           # Passed through the environment, never pasted into the script, so the note can't run commands
+          TITLE: ${{ inputs.title }}
           TEXT: ${{ inputs.text }}
           DATE: ${{ inputs.date }}
         run: |
           if [ "${#TEXT}" -gt 5000 ]; then echo "::error::The note is over 5000 characters."; exit 1; fi
-          printf '%s' "$TEXT" | python3 blog/new_note.py --date "${DATE:-$(TZ=America/Los_Angeles date +%F)}"
+          if [ "${#TITLE}" -gt 120 ]; then echo "::error::The title is over 120 characters."; exit 1; fi
+          printf '%s' "$TEXT" | python3 blog/new_note.py --title "$TITLE" --date "${DATE:-$(TZ=America/Los_Angeles date +%F)}"
           git checkout -- blog/feed.xml   # only its timestamp changes; notes aren't in the feed
           python3 .github/scripts/check_blog_links.py blog
 

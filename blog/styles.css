@@ -1113,7 +1113,7 @@ hr {
     }
 }
 
-/* The wall: notes, short dated thoughts with no page of their own */
+/* The wall: notes, short dated thoughts, each with its own page */
 .note-text {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     font-size: 0.85rem;
@@ -1129,14 +1129,41 @@ hr {
     margin-bottom: 0;
 }
 
+/* "on: <title>" above each note */
+.note-title {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.35;
+    margin: 0.15rem 0 0.3rem;
+}
+
+.note-title a {
+    color: var(--text);
+    text-decoration: none;
+}
+
+.note-title a:hover {
+    text-decoration: underline;
+}
+
+/* Lists show the first two lines; the rest is on the note's own page */
+.note-preview p {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+
 /* Homepage: each note is a small card */
-.note-cards {
+.wall-cards {
     display: grid;
-    gap: 0.6rem;
+    gap: 1rem;
 }
 
 .note-card {
-    padding: 0.7rem 0.9rem 0.8rem;
+    padding: 0.85rem 1rem 0.9rem;
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -1147,23 +1174,19 @@ hr {
     margin-bottom: 0.2rem;
 }
 
-/* /wall/: a timeline, like a Twitter feed */
+/* /wall/: a timeline of separate cards */
 .wall-feed {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--card);
-    overflow: hidden;
+    display: grid;
+    gap: 1rem;
 }
 
 .note {
     display: flex;
     gap: 0.75rem;
-    padding: 0.85rem 1rem;
-    border-bottom: 1px solid var(--border);
-}
-
-.note:last-child {
-    border-bottom: 0;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
 }
 
 .note .note-avatar {
@@ -1210,11 +1233,17 @@ hr {
 
 .note-more {
     font-size: 0.8rem;
+    margin: 0.35rem 0 0;
 }
 
 /* A note on its own page reads a bit bigger */
 .note-single .note-text {
     font-size: 1rem;
+}
+
+.note-single .note-title {
+    font-size: 1.25rem;
+    margin: 0.3rem 0 0.6rem;
 }
 
 /* Phones: drop the handle so the date always fits */
@@ -1227,6 +1256,9 @@ hr {
 .wall-feed > p {
     margin: 0;
     padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
 }
 
 /* "View more" under the homepage lists */

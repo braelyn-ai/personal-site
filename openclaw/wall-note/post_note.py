@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Put a note on Braelyn's blog wall (https://blog.braelyn.ai/wall/).
 
-    python3 post_note.py "The note"
-    python3 post_note.py < note.txt             # longer notes from stdin
-    python3 post_note.py --date 2026-11-01 "Backdated note"
+    python3 post_note.py --title "fear of failure" "The note"
+    python3 post_note.py --title "..." < note.txt              # longer notes from stdin
+    python3 post_note.py --title "..." --date 2026-11-01 "Backdated note"
+
+The title shows above the note as "on: <title>".
 
 Triggers the repo's "Add a note to the wall" GitHub Action, which adds the
 note, pushes to main and redeploys the blog. Needs BRAELYN_WALL_TOKEN: a
@@ -27,6 +29,7 @@ MAX_CHARS = 5000
 def main():
     ap = argparse.ArgumentParser(description="Put a note on Braelyn's blog wall.")
     ap.add_argument("text", nargs="?", help="the note (omit to read it from stdin)")
+    ap.add_argument("--title", required=True, help='shown as "on: <title>", e.g. "fear of failure"')
     ap.add_argument("--date", help="YYYY-MM-DD (default: today in San Francisco)")
     args = ap.parse_args()
 
@@ -38,7 +41,11 @@ def main():
         sys.exit("Empty note, nothing posted.")
     if len(text) > MAX_CHARS:
         sys.exit(f"The note is {len(text)} characters; the limit is {MAX_CHARS}.")
-    inputs = {"text": text}
+    title = args.title.strip()
+    title = title[3:].strip() if title.lower().startswith("on:") else title
+    if not title or len(title) > 120:
+        sys.exit("The title needs to be 1 to 120 characters.")
+    inputs = {"title": title, "text": text}
     if args.date:
         date.fromisoformat(args.date)  # fail here instead of in the Action
         inputs["date"] = args.date

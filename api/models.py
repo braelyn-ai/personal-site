@@ -40,6 +40,7 @@ class Event(Base):
     scroll_pct = Column(Integer, nullable=True)  # deepest scroll (page_leave)
 
     # Derived on the server
+    site = Column(String, nullable=True, index=True)  # braelyn.ai or blog.braelyn.ai, from the Origin header
     referrer_host = Column(String, nullable=True)
     country = Column(String, nullable=True, index=True)
     region = Column(String, nullable=True)
