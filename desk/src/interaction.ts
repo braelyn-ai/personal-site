@@ -791,7 +791,7 @@ export function setupInteractions(
     })
 }
 
-// Swap the door's "enter" button for the desktop-only message, then a second line
+// Swap the door's "enter" button for the desktop-only message, then point at the blog instead
 function showDesktopOnlyMessage(enterMesh: THREE.Mesh): void {
     const material = enterMesh.material as THREE.MeshBasicMaterial
     material.map?.dispose()
@@ -802,7 +802,46 @@ function showDesktopOnlyMessage(enterMesh: THREE.Mesh): void {
 
     setTimeout(() => {
         material.map?.dispose()
-        material.map = createTextTexture("(it's worth it i promise)", 28)
+        material.map = createTextTexture('or check out my blog', 28)
         material.needsUpdate = true
+        const blog = enterMesh.parent?.getObjectByName('social_blog')
+        if (blog instanceof THREE.Mesh) highlightBlogLink(blog)
     }, 2000)
+}
+
+let blogHighlighted = false
+
+// Outline the door's "blog" link as a button that gently pulses, so it's obvious what to tap
+// (outlined rather than filled: a solid white button glows too much in the door's lighting)
+function highlightBlogLink(blog: THREE.Mesh): void {
+    if (blogHighlighted) return
+    blogHighlighted = true
+    const canvas = document.createElement('canvas')
+    canvas.width = 512
+    canvas.height = 192
+    const ctx = canvas.getContext('2d')!
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 8
+    ctx.beginPath()
+    ctx.roundRect(100, 28, 312, 136, 68)
+    ctx.stroke()
+    ctx.font = 'bold 72px Arial, sans-serif'
+    ctx.fillStyle = '#ffffff'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('blog', 256, 100)
+    const material = blog.material as THREE.MeshBasicMaterial
+    material.map?.dispose()
+    material.map = new THREE.CanvasTexture(canvas)
+    material.needsUpdate = true
+    blog.geometry.dispose()
+    blog.geometry = new THREE.PlaneGeometry(2, 0.75)
+
+    const start = performance.now()
+    const pulse = (now: number) => {
+        if (!blog.parent) return // the door is gone
+        blog.scale.setScalar(1 + 0.06 * Math.sin((now - start) / 300))
+        requestAnimationFrame(pulse)
+    }
+    requestAnimationFrame(pulse)
 }
