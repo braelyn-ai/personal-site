@@ -1148,6 +1148,10 @@ hr {
 }
 
 /* Lists show the first two lines; the rest is on the note's own page */
+.note-preview {
+    position: relative;
+}
+
 .note-preview p {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -1231,9 +1235,19 @@ hr {
     text-decoration: underline;
 }
 
+/* "Read more" sits at the end of the second line, over a fade where the text gets cut */
 .note-more {
-    font-size: 0.8rem;
-    margin: 0.35rem 0 0;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    padding-left: 2.5em;
+    background: linear-gradient(to right, transparent, var(--card) 2em);
+    color: var(--link);
+    text-decoration: none;
+}
+
+.note-more:hover {
+    text-decoration: none;
 }
 
 /* A note on its own page reads a bit bigger */

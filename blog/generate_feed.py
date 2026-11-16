@@ -220,13 +220,13 @@ PREVIEW_CHARS = 150  # about two lines; anything longer (or a second paragraph) 
 
 
 def note_body(note, href, full=False):
-    """The whole note, or its first paragraph clipped to two lines with a Read more link to its own page."""
+    """The whole note, or its first paragraph clipped to two lines, with Read more at the end of the second."""
     if full:
         return f'<div class="note-text">{note_text(note["text"])}</div>'
     paras = paragraphs(note["text"])
     more = len(paras) > 1 or len(note_plain(paras[0])) > PREVIEW_CHARS
-    link = f'<p class="note-more"><a href="{href}">Read more</a></p>' if more else ""
-    return f'<div class="note-text note-preview">{note_text(paras[0])}</div>{link}'
+    link = f'<a class="note-more" href="{href}">Read more</a>' if more else ""
+    return f'<div class="note-text note-preview">{note_text(paras[0])}{link}</div>'
 
 
 def note_title(note, href=None):
