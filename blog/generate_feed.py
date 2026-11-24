@@ -395,8 +395,9 @@ LOG_LABELS = {"essay": "Essay", "note": "Note", "ride": "Ride", "urbex": "Urbex"
 LOG_ICONS = {
     # a page with a folded corner and lines of text
     "essay": '<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v3h3"/><path d="M9 11h6M9 14h6M9 17h4"/>',
-    # a sticky note, corner peeled
-    "note": '<path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/>',
+    # a sticky note, corner peeled, with a scribble on it
+    "note": '<path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/>'
+            '<path d="M7.5 9c1.2-1.4 2.1 1.4 3.3 0s2.1 1.4 3.3 0 2.1 1.4 2.4.4"/><path d="M7.5 13c1.2-1.4 2.1 1.4 3.3 0"/>',
     # a motorcycle: two wheels, seat into tank, engine block, raked fork with bars
     "ride": '<circle cx="5" cy="16.5" r="3.5"/><circle cx="19" cy="16.5" r="3.5"/>'
             '<path d="M5 16.5 7.5 11.5h5l2.5-2H17"/><path d="M19 16.5 15.5 7H13.5"/><path d="M9 16.5h5l-1-4h-3z"/>',
