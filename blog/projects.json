@@ -12,6 +12,7 @@
         "slug": "braelyn-ai",
         "date": "2025-12-10",
         "url": "https://braelyn.ai",
-        "description": "My personal site: a 3D desk above a Berlin techno club, built in Three.js. The monitor runs a real Linux terminal, the bass comes up through the floor, and there are a lot of easter eggs."
+        "description": "My personal site: a 3D desk above a Berlin techno club, built in Three.js. The monitor runs a real Linux terminal, the bass comes up through the floor, and there are a lot of easter eggs.",
+        "cover": "https://braelyn.ai/social.jpg"
     }
 ]

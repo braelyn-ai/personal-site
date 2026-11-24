@@ -43,10 +43,43 @@ def load_entries():
     return load_section("posts"), load_section("rides"), load_section("urbex")
 
 
+def link_preview(url):
+    """The og:image a site gives its link previews, or None if it can't be read."""
+    from urllib.parse import urljoin
+    from urllib.request import Request, urlopen
+    try:
+        req = Request(url, headers={"User-Agent": "blog-build (link preview)"})
+        with urlopen(req, timeout=10) as r:
+            page = r.read(512_000).decode("utf-8", "replace")
+    except Exception as err:
+        print(f"projects.json: couldn't read {url} for its link preview ({err})")
+        return None
+    for tag in re.findall(r"<meta\b[^>]*>", page, re.I):
+        if re.search(r'property=["\']og:image["\']', tag, re.I):
+            m = re.search(r'content=["\']([^"\']+)', tag, re.I)
+            if m:
+                return urljoin(url, html.unescape(m.group(1)))
+    return None
+
+
 def load_projects():
-    """Projects link out to other sites, so they keep the order projects.json gives them."""
+    """Projects link out to other sites, so they keep the order projects.json gives them.
+
+    A project without a "cover" gets its site's link preview image, looked up once and saved
+    into projects.json, so later builds (and CI) never need the network."""
     path = ROOT / "projects.json"
-    return json.loads(path.read_text()) if path.exists() else []
+    if not path.exists():
+        return []
+    projects = json.loads(path.read_text())
+    changed = False
+    for p in projects:
+        if not p.get("cover") and p.get("url"):
+            cover = link_preview(p["url"])
+            if cover:
+                p["cover"], changed = cover, True
+    if changed:
+        path.write_text(json.dumps(projects, indent=4, ensure_ascii=False) + "\n")
+    return projects
 
 
 def note_id(note, taken):
@@ -336,18 +369,21 @@ def note_page(note, wall_html):
 
 
 def project_html(project, indent):
+    """A project on /projects/: its link preview image (if it has one), name, description and site."""
     e = lambda s: html.escape(s, quote=True)
     pad = " " * indent
     host = re.sub(r"^https?://(www\.)?", "", project["url"]).rstrip("/")
-    return (
-        f'{pad}<article class="post-item project-item">\n'
-        f'{pad}    <a href="{e(project["url"])}" class="post-link" data-slug="{e(project["slug"])}">\n'
-        f'{pad}        <span class="post-title">{e(project["title"])}</span>\n'
-        f'{pad}        <span class="post-desc">{e(project.get("description", ""))}</span>\n'
-        f'{pad}        <span class="post-meta">{e(host)} ↗</span>\n'
-        f'{pad}    </a>\n'
-        f'{pad}</article>'
-    )
+    lines = [f'{pad}<a class="ride-item project-item" href="{e(project["url"])}" data-slug="{e(project["slug"])}">']
+    if project.get("cover"):
+        lines.append(f'{pad}    <img class="ride-thumb project-thumb" src="{e(project["cover"])}" alt="" loading="lazy">')
+    lines.append(f'{pad}    <div>')
+    lines.append(f'{pad}        <span class="post-title">{e(project["title"])}</span>')
+    if project.get("description"):
+        lines.append(f'{pad}        <span class="post-desc">{e(project["description"])}</span>')
+    lines.append(f'{pad}        <span class="post-meta">{e(host)} ↗</span>')
+    lines.append(f'{pad}    </div>')
+    lines.append(f'{pad}</a>')
+    return "\n".join(lines)
 
 
 # ---------------- The homepage log ----------------

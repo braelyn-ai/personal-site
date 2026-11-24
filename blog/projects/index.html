@@ -51,20 +51,22 @@
     <main>
         <div id="projects-container" style="margin-top: 1.5rem;">
             <!-- projects:start -->
-            <article class="post-item project-item">
-                <a href="https://berghain.lol" class="post-link" data-slug="berghain-lol">
+            <a class="ride-item project-item" href="https://berghain.lol" data-slug="berghain-lol">
+                <img class="ride-thumb project-thumb" src="https://berghain.lol/og.jpg" alt="" loading="lazy">
+                <div>
                     <span class="post-title">berghain.lol</span>
                     <span class="post-desc">A browser game set in the Berghain queue: Sunday morning, minus three degrees. Dress the part, wait your turn, answer the bouncer, and find out if you get in.</span>
                     <span class="post-meta">berghain.lol ↗</span>
-                </a>
-            </article>
-            <article class="post-item project-item">
-                <a href="https://braelyn.ai" class="post-link" data-slug="braelyn-ai">
+                </div>
+            </a>
+            <a class="ride-item project-item" href="https://braelyn.ai" data-slug="braelyn-ai">
+                <img class="ride-thumb project-thumb" src="https://braelyn.ai/social.jpg" alt="" loading="lazy">
+                <div>
                     <span class="post-title">braelyn.ai</span>
                     <span class="post-desc">My personal site: a 3D desk above a Berlin techno club, built in Three.js. The monitor runs a real Linux terminal, the bass comes up through the floor, and there are a lot of easter eggs.</span>
                     <span class="post-meta">braelyn.ai ↗</span>
-                </a>
-            </article>
+                </div>
+            </a>
             <!-- projects:end -->
         </div>
     </main>
@@ -75,7 +77,7 @@
     </footer>
 
     <script>
-        document.querySelectorAll('.project-item a').forEach(link => {
+        document.querySelectorAll('.project-item').forEach(link => {
             link.addEventListener('click', () => {
                 if (typeof slurp === 'function') slurp('blog_project_click', link.dataset.slug);
             });

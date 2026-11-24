@@ -1367,6 +1367,14 @@ body:not(.home) > footer a {
     margin: 0;
 }
 
+/* Link previews are wide (1.91:1) */
+.project-thumb {
+    width: 152px;
+    min-width: 152px;
+    height: 80px;
+    object-fit: cover;
+}
+
 .section-more {
     display: inline-block;
     margin-top: 0.5rem;
