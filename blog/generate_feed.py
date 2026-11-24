@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Build the generated parts of the blog from posts.json, rides.json and urbex.json:
+"""Build the generated parts of the blog from posts.json, rides.json, urbex.json and projects.json:
 
 - feed.xml     RSS feed
 - sitemap.xml  for search engines (robots.txt points at it)
 - the latest posts and notes in index.html, every post in posts/index.html,
   every note on the wall in wall/index.html, and the ride and urbex lists in
-  rides/index.html and urbex/index.html, written as
+  rides/index.html and urbex/index.html, the projects in projects/index.html, written as
   plain HTML between <!-- posts:start --> / <!-- posts:end --> style markers so
   crawlers and link previews see them without running JavaScript
 
@@ -41,6 +41,12 @@ def load_section(name):
 
 def load_entries():
     return load_section("posts"), load_section("rides"), load_section("urbex")
+
+
+def load_projects():
+    """Projects link out to other sites, so they keep the order projects.json gives them."""
+    path = ROOT / "projects.json"
+    return json.loads(path.read_text()) if path.exists() else []
 
 
 def note_id(note, taken):
@@ -138,7 +144,7 @@ def modified_date(entry):
     return entry["date"]
 
 
-def generate_sitemap(posts, rides, urbex, notes):
+def generate_sitemap(posts, rides, urbex, notes, projects):
     ns = "http://www.sitemaps.org/schemas/sitemap/0.9"
     urlset = ET.Element("urlset", xmlns=ns)
 
@@ -160,6 +166,8 @@ def generate_sitemap(posts, rides, urbex, notes):
         add(f"{BLOG_URL}/rides/", max(modified_date(r) for r in rides))
     if urbex:
         add(f"{BLOG_URL}/urbex/", max(modified_date(u) for u in urbex))
+    if projects:
+        add(f"{BLOG_URL}/projects/", latest)
     for entry, lastmod in sorted(dated, key=lambda x: x[0]["date"], reverse=True):
         add(url_for(entry), lastmod)
 
@@ -327,6 +335,21 @@ def note_page(note, wall_html):
 """
 
 
+def project_html(project, indent):
+    e = lambda s: html.escape(s, quote=True)
+    pad = " " * indent
+    host = re.sub(r"^https?://(www\.)?", "", project["url"]).rstrip("/")
+    return (
+        f'{pad}<article class="post-item project-item">\n'
+        f'{pad}    <a href="{e(project["url"])}" class="post-link" data-slug="{e(project["slug"])}">\n'
+        f'{pad}        <span class="post-title">{e(project["title"])}</span>\n'
+        f'{pad}        <span class="post-desc">{e(project.get("description", ""))}</span>\n'
+        f'{pad}        <span class="post-meta">{e(host)} ↗</span>\n'
+        f'{pad}    </a>\n'
+        f'{pad}</article>'
+    )
+
+
 def view_more(href, indent, label="View more"):
     return f'\n{" " * indent}<p class="view-more"><a href="{href}">{label} →</a></p>'
 
@@ -440,7 +463,7 @@ HOME_POSTS = 4
 HOME_NOTES = 6
 
 
-def render_lists(posts, rides, urbex, notes):
+def render_lists(posts, rides, urbex, notes, projects):
     index = ROOT / "index.html"
     text = index.read_text()
     body = "\n".join(post_html(p, 12) for p in posts[:HOME_POSTS])
@@ -484,13 +507,19 @@ def render_lists(posts, rides, urbex, notes):
         "            <p>Nothing posted yet. Still looking for a way in.</p>"
     urbex_index.write_text(fill(text, "urbex", body))
 
+    projects_index = ROOT / "projects" / "index.html"
+    body = "\n".join(project_html(p, 12) for p in projects) or \
+        "            <p>Nothing here yet. Still building.</p>"
+    projects_index.write_text(fill(projects_index.read_text(), "projects", body))
+
 
 if __name__ == "__main__":
     posts, rides, urbex = load_entries()
     notes = load_notes()
+    projects = load_projects()
     everything = sorted(posts + rides + urbex, key=lambda p: p["date"], reverse=True)
     generate_feed(everything)
-    generate_sitemap(posts, rides, urbex, notes)
-    render_lists(posts, rides, urbex, notes)
+    generate_sitemap(posts, rides, urbex, notes, projects)
+    render_lists(posts, rides, urbex, notes, projects)
     sync_urbex_badges(urbex)
-    print("Generated feed.xml, sitemap.xml and the lists in index.html, posts/, wall/, rides/ and urbex/")
+    print("Generated feed.xml, sitemap.xml and the lists in index.html, posts/, wall/, rides/, urbex/ and projects/")

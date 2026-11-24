@@ -10,6 +10,14 @@ ALLOWED_ORIGIN = "https://braelyn.ai"
 
 
 class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
+    # Public keys render as text in the browser instead of downloading
+    # (mimetypes calls .asc a signature and .pub an MS Publisher file)
+    extensions_map = {
+        **http.server.SimpleHTTPRequestHandler.extensions_map,
+        ".asc": "text/plain; charset=utf-8",
+        ".pub": "text/plain; charset=utf-8",
+    }
+
     def list_directory(self, path):
         # Don't expose directory listings (e.g. unlinked ride assets)
         self.send_error(404)

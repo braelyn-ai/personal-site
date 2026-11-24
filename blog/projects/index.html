@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Things Braelyn Boynton has built: games, experiments and side projects.">
+    <meta name="author" content="Braelyn Boynton">
+    <title>Projects · Braelyn Boynton</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
+    <link rel="apple-touch-icon" href="../assets/icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles.css?v=9">
+    <script src="../theme.js?v=4"></script>
+    <script defer src="../slurp.js?v=3"></script>
+    <link rel="canonical" href="https://blog.braelyn.ai/projects/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Projects · Braelyn's Blog">
+    <meta property="og:url" content="https://blog.braelyn.ai/projects/">
+    <meta property="og:image" content="https://blog.braelyn.ai/assets/me.jpg">
+    <meta property="og:site_name" content="Braelyn's Blog">
+    <meta property="og:description" content="Things Braelyn Boynton has built: games, experiments and side projects.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Projects · Braelyn's Blog">
+    <meta name="twitter:description" content="Things Braelyn Boynton has built: games, experiments and side projects.">
+    <meta name="twitter:image" content="https://blog.braelyn.ai/assets/me.jpg">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "@id": "https://blog.braelyn.ai/projects/",
+      "name": "Projects",
+      "url": "https://blog.braelyn.ai/projects/",
+      "isPartOf": { "@id": "https://blog.braelyn.ai/#blog" },
+      "author": { "@id": "https://braelyn.ai/#braelyn" },
+      "inLanguage": "en-US"
+    }
+    </script>
+</head>
+
+<body>
+    <header>
+        <p><a href="../">← Back to the blog</a></p>
+        <h1><span class="section-emoji" aria-hidden="true">🛠️</span> Projects</h1>
+        <p class="ride-meta">Things I've built, mostly for fun.</p>
+    </header>
+
+    <main>
+        <div id="projects-container" style="margin-top: 1.5rem;">
+            <!-- projects:start -->
+            <article class="post-item project-item">
+                <a href="https://berghain.lol" class="post-link" data-slug="berghain-lol">
+                    <span class="post-title">berghain.lol</span>
+                    <span class="post-desc">A browser game set in the Berghain queue: Sunday morning, minus three degrees. Dress the part, wait your turn, answer the bouncer, and find out if you get in.</span>
+                    <span class="post-meta">berghain.lol ↗</span>
+                </a>
+            </article>
+            <!-- projects:end -->
+        </div>
+    </main>
+
+    <footer>
+        <hr>
+        <p><a href="../">← Back to the blog</a></p>
+    </footer>
+
+    <script>
+        document.querySelectorAll('.project-item a').forEach(link => {
+            link.addEventListener('click', () => {
+                if (typeof slurp === 'function') slurp('blog_project_click', link.dataset.slug);
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -267,29 +267,63 @@ hr {
     margin-top: 0.15rem;
 }
 
-/* Theme toggle */
+/* Public keys — bottom left on the homepage */
+.key-links {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 2rem;
+    display: flex;
+    gap: 0.8rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 0.75rem;
+}
+
+/* Copyright — bottom right on the homepage */
+.copyright {
+    position: fixed;
+    bottom: 1.25rem;
+    right: 2rem;
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--text-muted);
+}
+
+.key-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+}
+
+.key-links a:hover {
+    color: var(--text-secondary);
+    text-decoration: underline;
+}
+
+/* Theme toggle — bottom left, a quiet text link like the key links */
 .theme-toggle {
     position: fixed;
-    top: 1rem;
-    right: 1rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
-    color: var(--text);
-    transition: border-color 0.2s;
+    bottom: 1.25rem;
+    left: 2rem;
     z-index: 100;
-    line-height: 1;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--text-muted);
 }
 
 .theme-toggle:hover {
-    border-color: var(--text-secondary);
+    color: var(--text-secondary);
+    text-decoration: underline;
+}
+
+/* On the homepage it sits in the key links row instead */
+.key-links .theme-toggle {
+    position: static;
 }
 
 /* Responsive: expand to full width on smaller screens */
@@ -306,6 +340,15 @@ hr {
     main,
     footer {
         max-width: 50%;
+    }
+
+    .key-links,
+    .copyright {
+        position: static;
+    }
+
+    .key-links {
+        margin-top: 0.25rem;
     }
 
     .sidebar-bio,
@@ -337,6 +380,13 @@ hr {
     footer {
         max-width: 100%;
         overflow-x: hidden;
+    }
+
+    /* On phones the toggle sits at the very end of the page, not over the text */
+    .theme-toggle {
+        position: static;
+        display: block;
+        margin: 0 0 1rem;
     }
 
     .bio {
@@ -1265,6 +1315,11 @@ hr {
     flex-wrap: wrap;
     gap: 0.5rem 1.75rem;
     margin: 2.25rem 0 0;
+}
+
+/* Under its "Other" heading, the heading supplies the gap */
+.section-head + .more-links {
+    margin-top: 0;
 }
 
 /* Emoji sits outside the underline */
