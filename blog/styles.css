@@ -576,6 +576,27 @@ body:not(.home) > footer a {
     overflow: hidden;
 }
 
+/* Notes are asides: indented off a hairline, a size smaller, a little tighter */
+.log-row.t-note {
+    padding: 14px 0 16px;
+}
+
+.t-note .log-body {
+    margin-left: 20px;
+    padding-left: 14px;
+    border-left: 1px solid var(--border);
+}
+
+.t-note .log-title {
+    font-size: 15.5px;
+    line-height: 22px;
+}
+
+.t-note .log-note p {
+    font-size: 14px;
+    max-width: 64ch;
+}
+
 .log-meta {
     display: flex;
     flex-direction: column;
@@ -812,6 +833,19 @@ body:not(.home) > footer a {
     .t-essay .log-title {
         font-size: 19px;
         line-height: 1.25;
+    }
+
+    .t-note .log-body {
+        margin-left: 12px;
+        padding-left: 12px;
+    }
+
+    .t-note .log-title {
+        font-size: 15px;
+    }
+
+    .t-note .log-note p {
+        font-size: 13.5px;
     }
 
     .log-desc {
