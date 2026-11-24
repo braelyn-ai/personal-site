@@ -429,6 +429,18 @@ body:not(.home) > footer a {
     color: var(--text);
 }
 
+.log-filters sup {
+    margin-left: 4px;
+    font: 400 10.5px/1 var(--mono);
+    vertical-align: 5px;
+    color: var(--text-muted);
+}
+
+.log-filters button[aria-pressed="true"] sup {
+    color: inherit;
+    opacity: 0.6;
+}
+
 .log-filters button[aria-pressed="true"] {
     background: var(--text);
     color: var(--bg);
@@ -593,6 +605,10 @@ body:not(.home) > footer a {
 
 .t-ride .log-media {
     aspect-ratio: 3 / 2;
+}
+
+.t-project .log-media {
+    aspect-ratio: 1.91 / 1;
 }
 
 .log-media img {

@@ -4,7 +4,8 @@
         "slug": "berghain-lol",
         "date": "2026-11-23",
         "url": "https://berghain.lol",
-        "description": "A browser game set in the Berghain queue: Sunday morning, minus three degrees. Dress the part, wait your turn, answer the bouncer, and find out if you get in."
+        "description": "A browser game set in the Berghain queue: Sunday morning, minus three degrees. Dress the part, wait your turn, answer the bouncer, and find out if you get in.",
+        "cover": "https://berghain.lol/og.jpg"
     },
     {
         "title": "braelyn.ai",

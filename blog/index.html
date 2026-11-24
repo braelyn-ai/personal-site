@@ -107,11 +107,12 @@
         <ol class="log" id="log">
             <!-- log:start -->
             <li class="log-year"><h2>2026</h2></li>
-            <li class="log-row t-project" data-type="project">
+            <li class="log-row t-project has-media" data-type="project">
                 <time class="log-date" datetime="2026-11-23">Nov 23</time>
                 <span class="log-type">Project</span>
                 <div class="log-body"><a class="log-title" href="https://berghain.lol" rel="noopener" data-slug="berghain-lol">berghain.lol <span class="log-ext" aria-hidden="true">↗</span></a><p class="log-desc">A browser game set in the Berghain queue: Sunday morning, minus three degrees. Dress the part, wait your turn, answer the bouncer, and find out if you get in.</p></div>
                 <div class="log-meta"></div>
+                <a class="log-media" href="https://berghain.lol" tabindex="-1" aria-hidden="true"><img src="https://berghain.lol/og.jpg" alt="" loading="lazy" decoding="async"></a>
             </li>
             <li class="log-row t-note" data-type="note">
                 <time class="log-date" datetime="2026-11-14">Nov 14</time>
@@ -361,7 +362,15 @@
                 }
             }
 
-            buttons.forEach(b => b.addEventListener('click', () => apply(b.dataset.f, true)));
+            buttons.forEach(b => {
+                const n = b.dataset.f === 'all'
+                    ? log.querySelectorAll('.log-row').length
+                    : log.querySelectorAll(`.log-row[data-type="${b.dataset.f}"]`).length;
+                const sup = document.createElement('sup');
+                sup.textContent = n;
+                b.appendChild(sup);
+                b.addEventListener('click', () => apply(b.dataset.f, true));
+            });
             const start = Object.keys(hash).find(k => '#' + hash[k] === location.hash);
             if (start) apply(start, false);
         })();
