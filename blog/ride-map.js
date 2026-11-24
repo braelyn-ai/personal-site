@@ -660,6 +660,12 @@
         setupLightbox();
     }
 
+    // For maps added after load (the homepage builds its map when a filter first needs it)
+    window.rideMapMount = (el) => {
+        const render = el.dataset.overview ? renderOverview : el.dataset.urbexOverview ? renderUrbexOverview : null;
+        if (render) render(el).catch(e => fail(el, e));
+    };
+
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 })();

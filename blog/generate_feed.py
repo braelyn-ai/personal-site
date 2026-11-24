@@ -350,6 +350,102 @@ def project_html(project, indent):
     )
 
 
+# ---------------- The homepage log ----------------
+# Everything in one dated stream: essays, notes, rides, urbex spots and projects.
+
+LOG_LABELS = {"essay": "Essay", "note": "Note", "ride": "Ride", "urbex": "Urbex", "project": "Project"}
+
+
+def route_path(gpx, points=240):
+    """The ride's GPX track as an SVG path fitted into a 100x100 box, for the little outline in the log."""
+    import math
+    pts = []
+    for tag in re.findall(r"<trkpt\b[^>]*>", (ROOT / gpx).read_text()):
+        lat, lon = re.search(r'lat="([-\d.]+)"', tag), re.search(r'lon="([-\d.]+)"', tag)
+        if lat and lon:
+            pts.append((float(lat.group(1)), float(lon.group(1))))
+    if len(pts) < 2:
+        return ""
+    pts = pts[:: max(1, len(pts) // points)] + [pts[-1]]
+    k = math.cos(math.radians(sum(p[0] for p in pts) / len(pts)))
+    xs, ys = [p[1] * k for p in pts], [-p[0] for p in pts]
+    span = max(max(xs) - min(xs), max(ys) - min(ys)) or 1
+    ox = (span - (max(xs) - min(xs))) / 2 - min(xs)
+    oy = (span - (max(ys) - min(ys))) / 2 - min(ys)
+    return " ".join(f'{"M" if i == 0 else "L"}{(x + ox) / span * 100:.1f} {(y + oy) / span * 100:.1f}'
+                    for i, (x, y) in enumerate(zip(xs, ys)))
+
+
+def log_entries(posts, notes, rides, urbex, projects):
+    """Every entry with a type and a link, newest first."""
+    out = ([{**p, "type": "essay", "href": f'posts/{p["slug"]}.html'} for p in posts]
+           + [{**n, "type": "note", "href": f'wall/{n["id"]}.html'} for n in notes]
+           + [{**r, "type": "ride", "href": f'rides/{r["slug"]}.html'} for r in rides]
+           + [{**u, "type": "urbex", "href": f'urbex/{u["slug"]}.html'} for u in urbex])
+    for p in projects:
+        if p.get("date"):
+            out.append({**p, "type": "project", "href": p["url"]})
+        else:
+            print(f'projects.json: "{p["title"]}" has no date, so it is left out of the homepage log')
+    return sorted(out, key=lambda x: x["date"], reverse=True)
+
+
+def log_row(x, indent):
+    e = lambda s: html.escape(str(s), quote=True)
+    pad = " " * indent
+    t, href = x["type"], e(x["href"])
+    d = datetime.strptime(x["date"], "%Y-%m-%d")
+    external = t == "project"
+    target = ' rel="noopener"' if external else ""
+    slug = x.get("slug") or x.get("id")
+
+    if t == "note":
+        title = f'<span class="log-on">on:</span> {e(x["title"].strip())}'
+        body = f'<div class="log-note">{note_text(paragraphs(x["text"])[0])}</div>'
+    else:
+        title = e(x["title"]) + (' <span class="log-ext" aria-hidden="true">↗</span>' if external else "")
+        body = f'<p class="log-desc">{e(x["description"])}</p>' if x.get("description") else ""
+
+    meta = []
+    if t == "essay" and x.get("readTime"):
+        meta.append(f'<span>{e(x["readTime"])}</span>')
+    elif t == "ride":
+        if x.get("distanceMi"):
+            meta.append(f'<span class="log-num">{round(x["distanceMi"]):,} mi</span>')
+        if x.get("bike"):
+            meta.append(f'<span>{e(re.sub(r"^\d{4} ", "", x["bike"]))}</span>')
+        path = route_path(x["gpx"]) if x.get("gpx") else ""
+        if path:
+            meta.append(f'<svg class="log-route" viewBox="-4 -4 108 108" aria-hidden="true"><path d="{path}"/></svg>')
+    elif t == "urbex":
+        if x.get("area"):
+            meta.append(f'<span>{e(x["area"])}</span>')
+        meta += [f'<span class="urbex-badge urbex-{f}">{f}</span>' for f in BADGES if x.get(f)]
+
+    media = ""
+    if x.get("cover"):
+        media = (f'\n{pad}    <a class="log-media" href="{href}" tabindex="-1" aria-hidden="true">'
+                 f'<img src="{e(x["cover"])}" alt="" loading="lazy" decoding="async"></a>')
+    return (
+        f'{pad}<li class="log-row t-{t}{" has-media" if media else ""}" data-type="{t}">\n'
+        f'{pad}    <time class="log-date" datetime="{x["date"]}">{d:%b} {d.day}</time>\n'
+        f'{pad}    <span class="log-type">{LOG_LABELS[t]}</span>\n'
+        f'{pad}    <div class="log-body"><a class="log-title" href="{href}"{target} data-slug="{e(slug)}">{title}</a>{body}</div>\n'
+        f'{pad}    <div class="log-meta">{"".join(meta)}</div>{media}\n'
+        f'{pad}</li>'
+    )
+
+
+def log_html(entries, indent):
+    out, year = [], None
+    for x in entries:
+        if x["date"][:4] != year:
+            year = x["date"][:4]
+            out.append(f'{" " * indent}<li class="log-year"><h2>{year}</h2></li>')
+        out.append(log_row(x, indent))
+    return "\n".join(out)
+
+
 def view_more(href, indent, label="View more"):
     return f'\n{" " * indent}<p class="view-more"><a href="{href}">{label} →</a></p>'
 
@@ -459,25 +555,12 @@ def sync_urbex_badges(urbex):
             page.write_text(new)
 
 
-HOME_POSTS = 4
-HOME_NOTES = 6
 
 
 def render_lists(posts, rides, urbex, notes, projects):
     index = ROOT / "index.html"
-    text = index.read_text()
-    body = "\n".join(post_html(p, 12) for p in posts[:HOME_POSTS])
-    if len(posts) > HOME_POSTS:
-        body += view_more("posts/", 12)
-    text = fill(text, "posts", body)
-    body = "\n".join(note_card(n, 12) for n in notes[:HOME_NOTES])
-    if notes:  # always link the wall, even before there are more notes than fit here
-        body += view_more("wall/", 12, "View all notes")
-    text = fill(text, "wall", body)
-    # The homepage wall only shows once there's a note on it
-    text = re.sub(r'<section id="wall-section"( hidden)?>',
-                  '<section id="wall-section">' if notes else '<section id="wall-section" hidden>', text)
-    index.write_text(text)
+    entries = log_entries(posts, notes, rides, urbex, projects)
+    index.write_text(fill(index.read_text(), "log", log_html(entries, 12)))
 
     posts_index = ROOT / "posts" / "index.html"
     posts_index.write_text(fill(posts_index.read_text(), "posts", "\n".join(post_html(p, 12, "../") for p in posts)))
