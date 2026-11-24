@@ -391,6 +391,25 @@ def project_html(project, indent):
 
 LOG_LABELS = {"essay": "Essay", "note": "Note", "ride": "Ride", "urbex": "Urbex", "project": "Project"}
 
+# Line icons under each type label: 24x24, drawn with the label's colour
+LOG_ICONS = {
+    # a page with a folded corner and lines of text
+    "essay": '<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v3h3"/><path d="M9 11h6M9 14h6M9 17h4"/>',
+    # a sticky note, corner peeled
+    "note": '<path d="M4 4h16v11l-5 5H4z"/><path d="M15 20v-5h5"/>',
+    # a motorcycle: two wheels, seat into tank, engine block, raked fork with bars
+    "ride": '<circle cx="5" cy="16.5" r="3.5"/><circle cx="19" cy="16.5" r="3.5"/>'
+            '<path d="M5 16.5 7.5 11.5h5l2.5-2H17"/><path d="M19 16.5 15.5 7H13.5"/><path d="M9 16.5h5l-1-4h-3z"/>',
+    # a building with a crack down the roof and a doorway
+    "urbex": '<path d="M4 21V9l8-6 8 6v12z"/><path d="M12 3l-1.5 4 2.5 2-2 3"/><path d="M10 21v-4h4v4"/>',
+    # a browser window: projects are sites
+    "project": '<rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="M3 9h18"/><path d="M6 7h.01M8.5 7h.01"/>',
+}
+
+
+def log_icon(t):
+    return (f'<svg class="log-icon" viewBox="0 0 24 24" aria-hidden="true">{LOG_ICONS[t]}</svg>')
+
 
 def route_path(gpx, points=240):
     """The ride's GPX track as an SVG path fitted into a 100x100 box, for the little outline in the log."""
@@ -465,7 +484,7 @@ def log_row(x, indent):
     return (
         f'{pad}<li class="log-row t-{t}{" has-media" if media else ""}" data-type="{t}">\n'
         f'{pad}    <time class="log-date" datetime="{x["date"]}">{d:%b} {d.day}</time>\n'
-        f'{pad}    <span class="log-type">{LOG_LABELS[t]}</span>\n'
+        f'{pad}    <span class="log-type">{LOG_LABELS[t]}{log_icon(t)}</span>\n'
         f'{pad}    <div class="log-body"><a class="log-title" href="{href}"{target} data-slug="{e(slug)}">{title}</a>{body}</div>\n'
         f'{pad}    <div class="log-meta">{"".join(meta)}</div>{media}\n'
         f'{pad}</li>'

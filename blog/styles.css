@@ -514,6 +514,23 @@ body:not(.home) > footer a {
     color: var(--accent);
 }
 
+.log-type {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.log-icon {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .log-body {
     min-width: 0;
 }
@@ -738,6 +755,16 @@ body:not(.home) > footer a {
 
     .log-type {
         margin-left: 64px;
+        flex-direction: row-reverse;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .log-icon {
+        width: 14px;
+        height: 14px;
+        margin: 0;
     }
 
     .log-body {
